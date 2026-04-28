@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Airing Calendar — My E-Library</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link href="css/site.css" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Bungee&display=swap" rel="stylesheet" />
+  <script src="https://kit.fontawesome.com/3c6e6d7c17.js" crossorigin="anonymous"></script>
+  <style>
+    :root{ --bg:#000; --accent:#ff000086; --card:#111; --text:#f5f5f5; --muted:#777; }
+    body{ margin:0; background:var(--bg); color:var(--text); font-family:"Bungee",Arial,sans-serif; min-height:100vh; }
+
+    /* ── PAGE HEADER ── */
+    .page-hd{
+      padding:22px 24px 0;
+      display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px;
+    }
+    .page-hd h1{ margin:0; font-size:18px; letter-spacing:.5px; }
+    .page-hd p{ margin:4px 0 0; font-size:11px; color:#555; }
+
+    /* ── DAY PILL BAR ── */
+    .day-bar{
+      display:flex; gap:6px; padding:16px 24px; overflow-x:auto;
+      background:#050505; border-bottom:1px solid #1a1a1a;
+      position:sticky; top:60px; z-index:50;
+    }
+    .day-pill{
+      flex-shrink:0; padding:8px 18px; border-radius:999px;
+      border:1px solid #222; background:transparent; color:#666;
+      font-family:"Bungee",Arial,sans-serif; font-size:11px; cursor:pointer;
+      transition:all .15s; display:flex; align-items:center; gap:6px;
+    }
+    .day-pill:hover{ color:#ccc; border-color:#444; }
+    .day-pill.active{
+      background:rgba(255,0,0,0.12); border-color:rgba(255,0,0,0.35);
+      color:#ff9999; box-shadow:0 0 12px rgba(255,0,0,0.1);
+    }
+    .today-dot{
+      width:6px; height:6px; border-radius:50%;
+      background:#ff3333; box-shadow:0 0 6px rgba(255,0,0,0.8);
+    }
+
+    /* ── DAY LABEL ── */
+    .day-label{
+      padding:16px 24px 12px;
+      font-size:11px; color:#555; letter-spacing:1.5px; text-transform:uppercase;
+      border-bottom:1px solid #111;
+    }
+
+    /* ── CARD GRID ── */
+    .cal-wrap{ padding:16px 24px 60px; }
+    .cal-grid{
+      display:grid; gap:10px;
+      grid-template-columns:repeat(auto-fill, minmax(300px, 1fr));
+    }
+
+    /* Calendar anime card */
+    .cal-card{
+      display:flex; gap:12px; align-items:flex-start;
+      background:var(--card); border:1px solid #1b1b1b; border-radius:14px;
+      padding:12px; cursor:default; transition:border-color .15s;
+    }
+    .cal-card.tracked{
+      border-color:rgba(255,0,0,0.35);
+      background:rgba(255,0,0,0.04);
+    }
+    .cal-thumb{
+      width:56px; height:78px; object-fit:cover; border-radius:8px;
+      border:1px solid #1e1e1e; flex-shrink:0; display:block;
+    }
+    .cal-info{ flex:1; min-width:0; }
+    .cal-title{
+      font-size:11px; line-height:1.4; margin:0 0 7px;
+      display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden;
+    }
+    .cal-meta{ display:flex; flex-wrap:wrap; gap:5px; }
+    .cal-chip{
+      background:#181818; border:1px solid #252525; border-radius:999px;
+      padding:2px 8px; font-size:9px; color:#666;
+      display:inline-flex; align-items:center; gap:4px;
+    }
+    .cal-chip i{ font-size:8px; }
+    .cal-chip.tracking{
+      background:rgba(255,0,0,0.1); border-color:rgba(255,0,0,0.3);
+      color:#ff9999;
+    }
+    .cal-syn{
+      font-size:10px; color:#555; margin:6px 0 0; line-height:1.5;
+      display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden;
+    }
+
+    /* skeleton */
+    .skel{ background:#111; border:1px solid #1b1b1b; border-radius:14px; overflow:hidden; padding:12px; display:flex; gap:12px; }
+    .skel-sq{ width:56px; height:78px; border-radius:8px; background:linear-gradient(90deg,#1a1a1a 25%,#222 50%,#1a1a1a 75%); background-size:200% 100%; animation:shimmer 1.4s infinite; flex-shrink:0; }
+    .skel-lines{ flex:1; display:flex; flex-direction:column; gap:7px; padding-top:4px; }
+    .skel-line{ height:10px; border-radius:6px; background:linear-gradient(90deg,#1a1a1a 25%,#222 50%,#1a1a1a 75%); background-size:200% 100%; animation:shimmer 1.4s infinite; }
+    .skel-line.s{ width:55%; }
+    @keyframes shimmer{ 0%{background-position:200% 0}100%{background-position:-200% 0} }
+
+    /* state */
+    .state{ text-align:center; padding:60px 20px; color:var(--muted); grid-column:1/-1; }
+    .state i{ font-size:36px; opacity:.2; display:block; margin-bottom:12px; }
+    .state p{ margin:0; font-size:13px; }
+
+    /* tracking count badge */
+    .tracking-badge{
+      display:inline-flex; align-items:center; gap:6px;
+      background:rgba(255,0,0,0.1); border:1px solid rgba(255,0,0,0.25);
+      border-radius:999px; padding:5px 12px; font-size:11px; color:#ff9999;
+    }
+  </style>
+</head>
+<body>
+  <script type="module" src="js/auth-guard.js"></script>
+
+  <nav id="app-nav"></nav>
+  <script src="js/nav.js" defer></script>
+
+  <div class="page-hd">
+    <div>
+      <h1><i class="fa-solid fa-calendar-days" style="color:rgba(255,0,0,0.6);margin-right:8px;"></i>Airing Calendar</h1>
+      <p>This week's airing anime — highlighted titles are in your library</p>
+    </div>
+    <span class="tracking-badge" id="trackingCount" style="display:none;">
+      <i class="fa-solid fa-bookmark"></i> <span id="trackingNum">0</span> tracking this week
+    </span>
+  </div>
+
+  <div class="day-bar" id="dayBar"></div>
+
+  <div class="day-label" id="dayLabel"></div>
+
+  <div class="cal-wrap">
+    <div class="cal-grid" id="calGrid"></div>
+  </div>
+
+  <script type="module">
+    import { getWishlist } from "./js/firebase-service.js";
+
+    const JIKAN_BASE = 'https://api.jikan.moe/v4';
+
+    const DAYS = ['monday','tuesday','wednesday','thursday','friday','saturday','sunday'];
+    const DAY_LABELS = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
+    const DAY_SHORT  = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+
+    // Today: JS getDay() is 0=Sun,1=Mon... → convert to 0=Mon,6=Sun
+    const todayIdx = (new Date().getDay() + 6) % 7;
+    let activeDay  = DAYS[todayIdx];
+    const cache    = {};
+    let trackedTitles = new Set();
+
+    /* ── Load wishlist for tracking highlight ── */
+    getWishlist().then(items => {
+      items.forEach(i => {
+        if (i.title) trackedTitles.add(i.title.toLowerCase().trim());
+      });
+    }).catch(() => {});
+
+    /* ── Build day pills ── */
+    const dayBar = document.getElementById('dayBar');
+    DAYS.forEach((d, i) => {
+      const btn = document.createElement('button');
+      btn.className = 'day-pill' + (d === activeDay ? ' active' : '');
+      btn.dataset.day = d;
+      btn.innerHTML = DAY_SHORT[i] + (i === todayIdx ? ' <span class="today-dot"></span>' : '');
+      btn.addEventListener('click', () => selectDay(d, i));
+      dayBar.appendChild(btn);
+    });
+
+    function selectDay(day, idx) {
+      activeDay = day;
+      document.querySelectorAll('.day-pill').forEach((b, i) => b.classList.toggle('active', DAYS[i] === day));
+      document.getElementById('dayLabel').textContent =
+        DAY_LABELS[idx] + (idx === todayIdx ? '  (Today)' : '');
+      loadDay(day);
+    }
+
+    /* ── Fetch & render ── */
+    async function loadDay(day) {
+      const grid = document.getElementById('calGrid');
+      if (cache[day]) { renderItems(cache[day]); return; }
+
+      // Show skeletons
+      grid.innerHTML = Array.from({length:8}, () => `
+        <div class="skel">
+          <div class="skel-sq"></div>
+          <div class="skel-lines">
+            <div class="skel-line"></div>
+            <div class="skel-line s"></div>
+            <div class="skel-line s"></div>
+          </div>
+        </div>`).join('');
+
+      try {
+        const res = await fetch(`${JIKAN_BASE}/schedules?filter=${day}&limit=25&sfw`);
+        if (!res.ok) throw new Error(res.status);
+        const data = await res.json();
+        cache[day] = data.data || [];
+        renderItems(cache[day]);
+      } catch(e) {
+        grid.innerHTML = `<div class="state"><i class="fa-solid fa-circle-exclamation"></i><p>${
+          e.message === '429' ? 'Too many requests — wait a moment and try again.' : 'Failed to load schedule.'
+        }</p></div>`;
+      }
+    }
+
+    function renderItems(items) {
+      const grid = document.getElementById('calGrid');
+      grid.innerHTML = '';
+
+      if (!items.length) {
+        grid.innerHTML = '<div class="state"><i class="fa-solid fa-moon"></i><p>No anime scheduled for this day.</p></div>';
+        return;
+      }
+
+      let trackingCount = 0;
+      items.forEach(it => {
+        const isTracked = trackedTitles.has((it.title || '').toLowerCase().trim());
+        if (isTracked) trackingCount++;
+
+        const card = document.createElement('div');
+        card.className = 'cal-card' + (isTracked ? ' tracked' : '');
+        card.innerHTML = `
+          <img class="cal-thumb"
+            src="${esc(it.images?.jpg?.image_url || '')}" alt="${esc(it.title || '')}"
+            onerror="this.src='https://via.placeholder.com/56x78?text=?'" loading="lazy">
+          <div class="cal-info">
+            <p class="cal-title">${esc(it.title || '')}</p>
+            <div class="cal-meta">
+              ${it.score ? `<span class="cal-chip"><i class="fa-solid fa-star" style="color:#ffd700;"></i>${it.score}</span>` : ''}
+              ${it.episodes ? `<span class="cal-chip">${it.episodes} ep</span>` : ''}
+              ${it.broadcast?.time ? `<span class="cal-chip"><i class="fa-regular fa-clock"></i>${it.broadcast.time} JST</span>` : ''}
+              ${isTracked ? `<span class="cal-chip tracking"><i class="fa-solid fa-bookmark"></i>Tracking</span>` : ''}
+            </div>
+            ${it.synopsis ? `<p class="cal-syn">${esc(it.synopsis.slice(0,120))}${it.synopsis.length>120?'…':''}</p>` : ''}
+          </div>`;
+        grid.appendChild(card);
+      });
+
+      // Update tracking badge
+      if (trackingCount > 0) {
+        document.getElementById('trackingNum').textContent = trackingCount;
+        document.getElementById('trackingCount').style.display = 'inline-flex';
+      } else {
+        document.getElementById('trackingCount').style.display = 'none';
+      }
+    }
+
+    function esc(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+    /* ── Init: load today ── */
+    const todayLabelEl = document.getElementById('dayLabel');
+    todayLabelEl.textContent = DAY_LABELS[todayIdx] + '  (Today)';
+    loadDay(activeDay);
+  </script>
+</body>
+</html>

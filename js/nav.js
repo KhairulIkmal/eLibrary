@@ -13,7 +13,9 @@
     streaming: page.includes('platforms') && type === 'streaming',
     webtoon:   page.includes('platforms') && type === 'webtoon',
     update:    page.includes('update'),
-    friends:   page.includes('friends')
+    friends:   page.includes('friends'),
+    calendar:  page.includes('calendar'),
+    import:    page.includes('import'),
   };
 
   const links = [
@@ -23,6 +25,8 @@
     { href: 'platforms.html?type=webtoon',   label: 'Reading',          icon: 'fa-book-open',      key: 'webtoon'   },
     { href: 'update.html',                   label: 'Update Wishlist',  icon: 'fa-pen-to-square',  key: 'update'    },
     { href: 'friends.html',                  label: 'Friends',          icon: 'fa-user-group',     key: 'friends'   },
+    { href: 'calendar.html',                 label: 'Calendar',         icon: 'fa-calendar-days',  key: 'calendar'  },
+    { href: 'import.html',                   label: 'Import',           icon: 'fa-file-import',    key: 'import'    },
   ];
 
   const logoSvg = `

@@ -1,7 +1,7 @@
 import { initializeApp, getApps, getApp }                      from "https://www.gstatic.com/firebasejs/11.6.0/firebase-app.js";
 import { getFirestore, collection, addDoc, getDocs, updateDoc,
          doc, orderBy, query, serverTimestamp, deleteDoc,
-         getDoc, setDoc, where, limit }                       from "https://www.gstatic.com/firebasejs/11.6.0/firebase-firestore.js";
+         getDoc, setDoc, where, limit, writeBatch }           from "https://www.gstatic.com/firebasejs/11.6.0/firebase-firestore.js";
 import { getStorage, ref, uploadBytes, getDownloadURL,
          deleteObject }                                        from "https://www.gstatic.com/firebasejs/11.6.0/firebase-storage.js";
 import { getAuth, onAuthStateChanged }                         from "https://www.gstatic.com/firebasejs/11.6.0/firebase-auth.js";
@@ -492,6 +492,49 @@ export async function getFriendReviews(title) {
   return snaps
     .filter(s => s && s.exists())
     .map(s => ({ id: s.id, ...s.data() }));
+}
+
+/* ── Batch Import ───────────────────────────────────────── */
+
+export async function batchImportWishlist(items) {
+  const uid = await getUid();
+  const col = await wishlistCol();
+  const now = serverTimestamp();
+
+  // Firestore batch max 500 ops — split into chunks of 499
+  const chunks = [];
+  for (let i = 0; i < items.length; i += 499) chunks.push(items.slice(i, i + 499));
+
+  let total = 0;
+  for (const chunk of chunks) {
+    const batch = writeBatch(db);
+    chunk.forEach(item => {
+      const ref = doc(col);
+      batch.set(ref, {
+        title:            item.title            || '',
+        type:             item.type             || 'anime',
+        genre:            item.genre            || '',
+        status:           item.status           || 'planning',
+        site_url:         '',
+        cover_path:       '',
+        preview_url:      '',
+        preview_source:   '',
+        last_chapter:     '',
+        sources:          [],
+        progress_current: item.progress_current != null ? Number(item.progress_current) : null,
+        progress_total:   null,
+        rating:           item.rating != null ? Number(item.rating) : null,
+        notes:            '',
+        start_date:       null,
+        finish_date:      item.status === 'completed' ? now : null,
+        created_at:       now,
+        updated_at:       now,
+      });
+    });
+    await batch.commit();
+    total += chunk.length;
+  }
+  return total;
 }
 
 /* ── Stats ──────────────────────────────────────────────── */
