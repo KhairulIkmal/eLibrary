@@ -217,7 +217,7 @@ body{ margin:0; background:var(--bg); color:var(--text); font-family:"Bungee", A
 .nav-mobile a.active,.nav-mobile a:hover{background:var(--accent);}
 @media(max-width:768px){
   .hamburger{display:flex;}
-  .nav > a,.nav > .spacer,.nav > .icon-btn{display:none;}
+  .nav > a:not(.nav-brand),.nav > .spacer,.nav > .icon-btn{display:none;}
 }
 
 /* ── FIELD VALIDATION + BACK BUTTON ─────────────────────── */
