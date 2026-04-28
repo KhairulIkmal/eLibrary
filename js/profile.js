@@ -2,6 +2,8 @@ import { getApps, getApp, initializeApp }           from "https://www.gstatic.co
 import { getAuth, updateProfile }                    from "https://www.gstatic.com/firebasejs/11.6.0/firebase-auth.js";
 import { getStorage, ref, uploadBytes, getDownloadURL }
                                                      from "https://www.gstatic.com/firebasejs/11.6.0/firebase-storage.js";
+import { checkUsernameAvailable, claimUsername, upsertPublicProfile }
+                                                     from "./firebase-service.js";
 import { firebaseConfig }                            from "./firebase-config.js";
 
 const app     = getApps().length ? getApp() : initializeApp(firebaseConfig);
@@ -143,15 +145,30 @@ photoInput.addEventListener('change', () => {
 saveBtn.addEventListener('click', async () => {
   const user        = auth.currentUser;
   const newUsername = usernameInput.value.trim();
+  const oldUsername = user.displayName || '';
   if (!user) return;
+
+  if (!newUsername) { showMsg('Username is required.', 'error'); return; }
+  if (!/^[a-zA-Z0-9_]{3,20}$/.test(newUsername)) {
+    showMsg('3–20 characters: letters, numbers, underscores only.', 'error');
+    return;
+  }
 
   saveBtn.disabled   = true;
   saveBtn.innerHTML  = '<i class="fa-solid fa-spinner fa-spin"></i> Saving...';
   msgEl.textContent  = '';
 
   try {
-    let photoURL = user.photoURL || '';
+    // Check username availability if changed
+    if (newUsername.toLowerCase() !== oldUsername.toLowerCase()) {
+      const available = await checkUsernameAvailable(newUsername);
+      if (!available) {
+        showMsg('Username is already taken.', 'error');
+        return;
+      }
+    }
 
+    let photoURL = user.photoURL || '';
     if (pendingPhotoFile) {
       const storageRef = ref(storage, `profiles/${user.uid}/avatar`);
       await uploadBytes(storageRef, pendingPhotoFile);
@@ -159,9 +176,13 @@ saveBtn.addEventListener('click', async () => {
     }
 
     await updateProfile(user, {
-      displayName: newUsername || null,
-      photoURL:    photoURL    || null,
+      displayName: newUsername,
+      photoURL:    photoURL || null,
     });
+
+    // Claim username slot and sync public profile
+    await claimUsername(newUsername, oldUsername);
+    await upsertPublicProfile(user);
 
     updateNavChip(user);
     showMsg('Profile updated!', 'success');

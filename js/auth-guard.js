@@ -1,9 +1,12 @@
-import { initializeApp, getApps, getApp }    from "https://www.gstatic.com/firebasejs/11.6.0/firebase-app.js";
-import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/11.6.0/firebase-auth.js";
+import { initializeApp, getApps, getApp }       from "https://www.gstatic.com/firebasejs/11.6.0/firebase-app.js";
+import { getAuth, onAuthStateChanged, signOut }  from "https://www.gstatic.com/firebasejs/11.6.0/firebase-auth.js";
+import { getFirestore, doc, setDoc, serverTimestamp }
+                                                 from "https://www.gstatic.com/firebasejs/11.6.0/firebase-firestore.js";
 import { firebaseConfig }                        from "./firebase-config.js";
 
 const app  = getApps().length ? getApp() : initializeApp(firebaseConfig);
 const auth = getAuth(app);
+const db   = getFirestore(app);
 
 onAuthStateChanged(auth, (user) => {
   if (!user) {
@@ -21,7 +24,16 @@ onAuthStateChanged(auth, (user) => {
       window.location.href = 'login.html';
     });
 
-    // Load profile module
+    // Sync public profile so others can discover this user
+    setDoc(doc(db, "profiles", user.uid), {
+      uid:       user.uid,
+      email:     user.email     || '',
+      username:  user.displayName || '',
+      photoURL:  user.photoURL  || '',
+      updatedAt: serverTimestamp()
+    }, { merge: true }).catch(() => {});
+
+    // Load profile modal module
     import('./profile.js').catch(() => {});
   }
 });

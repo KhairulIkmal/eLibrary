@@ -1,7 +1,7 @@
 import { initializeApp, getApps, getApp }                      from "https://www.gstatic.com/firebasejs/11.6.0/firebase-app.js";
 import { getFirestore, collection, addDoc, getDocs, updateDoc,
          doc, orderBy, query, serverTimestamp, deleteDoc,
-         getDoc }                                              from "https://www.gstatic.com/firebasejs/11.6.0/firebase-firestore.js";
+         getDoc, setDoc, where }                              from "https://www.gstatic.com/firebasejs/11.6.0/firebase-firestore.js";
 import { getStorage, ref, uploadBytes, getDownloadURL,
          deleteObject }                                        from "https://www.gstatic.com/firebasejs/11.6.0/firebase-storage.js";
 import { getAuth, onAuthStateChanged }                         from "https://www.gstatic.com/firebasejs/11.6.0/firebase-auth.js";
@@ -190,4 +190,113 @@ export async function addPlatform(fields, iconFile) {
     created_at:  serverTimestamp()
   });
   return { id: docRef.id, icon_path };
+}
+
+/* ── Public profiles ──────────────────────────────────────── */
+
+export async function upsertPublicProfile(user) {
+  await setDoc(doc(db, "profiles", user.uid), {
+    uid:       user.uid,
+    email:     user.email     || '',
+    username:  user.displayName || '',
+    photoURL:  user.photoURL  || '',
+    updatedAt: serverTimestamp()
+  }, { merge: true });
+}
+
+/* ── Username uniqueness ──────────────────────────────────── */
+
+export async function checkUsernameAvailable(username) {
+  const snap = await getDoc(doc(db, "usernames", username.toLowerCase()));
+  if (!snap.exists()) return true;
+  const uid = await getUid();
+  return snap.data().uid === uid; // already mine → still "available"
+}
+
+export async function claimUsername(newUsername, oldUsername) {
+  const uid  = await getUid();
+  const key  = newUsername.toLowerCase();
+  await setDoc(doc(db, "usernames", key), { uid });
+  if (oldUsername && oldUsername.toLowerCase() !== key) {
+    await deleteDoc(doc(db, "usernames", oldUsername.toLowerCase())).catch(() => {});
+  }
+}
+
+/* ── Friend discovery ─────────────────────────────────────── */
+
+export async function searchUserByUsername(username) {
+  const snap = await getDoc(doc(db, "usernames", username.toLowerCase()));
+  if (!snap.exists()) return null;
+  const { uid } = snap.data();
+  const profile  = await getDoc(doc(db, "profiles", uid));
+  if (!profile.exists()) return null;
+  return { uid, ...profile.data() };
+}
+
+/* ── Friend requests ──────────────────────────────────────── */
+
+export async function sendFriendRequest(toUid) {
+  const myUid = await getUid();
+  const me    = auth.currentUser;
+  await setDoc(doc(db, "friendRequests", toUid, "from", myUid), {
+    fromUid:  myUid,
+    username: me.displayName || me.email || '',
+    photoURL: me.photoURL    || '',
+    sentAt:   serverTimestamp()
+  });
+}
+
+export async function getFriendRequests() {
+  const uid  = await getUid();
+  const snap = await getDocs(collection(db, "friendRequests", uid, "from"));
+  return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+}
+
+export async function acceptFriendRequest(fromUid, fromData) {
+  const myUid = await getUid();
+  const me    = auth.currentUser;
+  const myData = {
+    uid:      myUid,
+    username: me.displayName || me.email || '',
+    photoURL: me.photoURL    || '',
+    addedAt:  serverTimestamp()
+  };
+  // Add friend to my list (owner write)
+  await setDoc(doc(db, "users", myUid, "friends", fromUid), {
+    uid:      fromUid,
+    username: fromData.username || '',
+    photoURL: fromData.photoURL || '',
+    addedAt:  serverTimestamp()
+  });
+  // Add myself to their list (allowed by Firestore rule if request exists)
+  await setDoc(doc(db, "users", fromUid, "friends", myUid), myData);
+  // Delete the request
+  await deleteDoc(doc(db, "friendRequests", myUid, "from", fromUid));
+}
+
+export async function declineFriendRequest(fromUid) {
+  const uid = await getUid();
+  await deleteDoc(doc(db, "friendRequests", uid, "from", fromUid));
+}
+
+/* ── Friends list ─────────────────────────────────────────── */
+
+export async function getFriends() {
+  const uid  = await getUid();
+  const snap = await getDocs(collection(db, "users", uid, "friends"));
+  return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+}
+
+export async function getFriendWishlist(friendUid) {
+  const snap = await getDocs(query(
+    collection(db, "users", friendUid, "wishlist"),
+    orderBy("created_at", "desc")
+  ));
+  return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+}
+
+export async function removeFriend(friendUid) {
+  const myUid = await getUid();
+  await deleteDoc(doc(db, "users", myUid,     "friends", friendUid));
+  await deleteDoc(doc(db, "users", friendUid, "friends", myUid)).catch(() => {});
 }
