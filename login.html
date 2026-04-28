@@ -32,6 +32,12 @@
       <!-- Form -->
       <form id="loginForm" autocomplete="off">
 
+        <!-- Username — only shown in register mode -->
+        <div class="field-group" id="usernameGroup" style="display:none;">
+          <label for="regUsername"><i class="fa-solid fa-at"></i> Username</label>
+          <input type="text" id="regUsername" placeholder="3–20 chars: letters, numbers, _" maxlength="20" autocomplete="off" />
+        </div>
+
         <div class="field-group">
           <label for="email"><i class="fa-solid fa-envelope"></i> Email</label>
           <input type="email" id="email" placeholder="Enter your email" required autocomplete="email" />
@@ -45,12 +51,6 @@
               <i class="fa-solid fa-eye"></i>
             </button>
           </div>
-        </div>
-
-        <!-- Username — only shown in register mode -->
-        <div class="field-group" id="usernameGroup" style="display:none;">
-          <label for="regUsername"><i class="fa-solid fa-at"></i> Username</label>
-          <input type="text" id="regUsername" placeholder="3–20 chars: letters, numbers, _" maxlength="20" autocomplete="off" />
         </div>
 
         <!-- Confirm password — only shown in register mode -->
