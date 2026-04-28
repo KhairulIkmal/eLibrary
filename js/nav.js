@@ -1,0 +1,142 @@
+(function(){
+  const page     = (location.pathname.split('/').pop() || '').toLowerCase();
+  const q        = new URLSearchParams(location.search);
+  const type     = (q.get('type') || '').toLowerCase();
+  const username = localStorage.getItem('username') || 'User';
+
+  const active = {
+    home:      page.includes('home'),
+    explore:   page.includes('explore'),
+    streaming: page.includes('platforms') && type === 'streaming',
+    webtoon:   page.includes('platforms') && type === 'webtoon',
+    update:    page.includes('update')
+  };
+
+  const links = [
+    { href: 'home.html',                     label: 'Home',             icon: 'fa-house',          key: 'home'      },
+    { href: 'explore.html',                  label: 'Explore',          icon: 'fa-compass',        key: 'explore'   },
+    { href: 'platforms.html?type=streaming', label: 'Streaming',        icon: 'fa-tv',             key: 'streaming' },
+    { href: 'platforms.html?type=webtoon',   label: 'Reading',          icon: 'fa-book-open',      key: 'webtoon'   },
+    { href: 'update.html',                   label: 'Update Wishlist',  icon: 'fa-pen-to-square',  key: 'update'    },
+  ];
+
+  const logoSvg = `
+    <svg width="30" height="26" viewBox="0 0 30 26" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+      <defs>
+        <linearGradient id="spineG" x1="15" y1="0" x2="15" y2="26" gradientUnits="userSpaceOnUse">
+          <stop offset="0%"   stop-color="#ff6b6b"/>
+          <stop offset="50%"  stop-color="#ff0000"/>
+          <stop offset="100%" stop-color="#b80000"/>
+        </linearGradient>
+        <filter id="spineGlow" x="-80%" y="-20%" width="260%" height="140%">
+          <feGaussianBlur stdDeviation="1.5" result="blur"/>
+          <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+        </filter>
+      </defs>
+      <!-- Left page -->
+      <path d="M1 3 Q1 1 3 1 L13 1 L13 25 Q11 24 9 24 L3 24 Q1 24 1 22 Z" fill="#1c1c1c" stroke="rgba(255,255,255,0.12)" stroke-width="0.8"/>
+      <line x1="4"  y1="7"  x2="10" y2="7"  stroke="rgba(255,255,255,0.35)" stroke-width="1.2" stroke-linecap="round"/>
+      <line x1="4"  y1="11" x2="10" y2="11" stroke="rgba(255,255,255,0.18)" stroke-width="0.9" stroke-linecap="round"/>
+      <line x1="4"  y1="15" x2="10" y2="15" stroke="rgba(255,255,255,0.18)" stroke-width="0.9" stroke-linecap="round"/>
+      <line x1="4"  y1="19" x2="8"  y2="19" stroke="rgba(255,255,255,0.18)" stroke-width="0.9" stroke-linecap="round"/>
+      <!-- Right page -->
+      <path d="M29 3 Q29 1 27 1 L17 1 L17 25 Q19 24 21 24 L27 24 Q29 24 29 22 Z" fill="#1c1c1c" stroke="rgba(255,255,255,0.12)" stroke-width="0.8"/>
+      <line x1="20" y1="7"  x2="26" y2="7"  stroke="rgba(255,255,255,0.35)" stroke-width="1.2" stroke-linecap="round"/>
+      <line x1="20" y1="11" x2="26" y2="11" stroke="rgba(255,255,255,0.18)" stroke-width="0.9" stroke-linecap="round"/>
+      <line x1="20" y1="15" x2="26" y2="15" stroke="rgba(255,255,255,0.18)" stroke-width="0.9" stroke-linecap="round"/>
+      <line x1="20" y1="19" x2="24" y2="19" stroke="rgba(255,255,255,0.18)" stroke-width="0.9" stroke-linecap="round"/>
+      <!-- Spine -->
+      <rect x="13" y="0" width="4" height="26" rx="1" fill="url(#spineG)" filter="url(#spineGlow)"/>
+    </svg>
+  `;
+
+  const navHtml = `
+    <a href="home.html" class="nav-brand" aria-label="Home">
+      ${logoSvg}
+      <span class="nav-brand-text">My E-Library</span>
+    </a>
+
+    <div class="nav-links">
+      ${links.map(l => `
+        <a href="${l.href}" class="nav-link ${active[l.key] ? 'active' : ''}">
+          <i class="fa-solid ${l.icon}"></i>
+          <span>${l.label}</span>
+        </a>
+      `).join('')}
+    </div>
+
+    <div class="nav-right">
+      <div class="nav-user">
+        <i class="fa-solid fa-circle-user"></i>
+        <span>${username}</span>
+      </div>
+      <a id="logoutBtn" href="#" class="nav-logout" title="Logout" aria-label="Logout">
+        <i class="fa-solid fa-right-from-bracket"></i>
+        <span class="nav-logout-label">Logout</span>
+      </a>
+      <button class="hamburger" id="navHamburger" aria-label="Menu" aria-expanded="false">
+        <span></span><span></span><span></span>
+      </button>
+    </div>
+  `;
+
+  const mobileHtml = `
+    <div class="nav-mobile-user">
+      <i class="fa-solid fa-circle-user"></i> ${username}
+    </div>
+    ${links.map(l => `
+      <a href="${l.href}" class="nav-mobile-link ${active[l.key] ? 'active' : ''}">
+        <i class="fa-solid ${l.icon}"></i> ${l.label}
+      </a>
+    `).join('')}
+    <a id="logoutMobile" href="#" class="nav-mobile-link nav-mobile-logout">
+      <i class="fa-solid fa-right-from-bracket"></i> Logout
+    </a>
+  `;
+
+  const container = document.getElementById('app-nav');
+  if (container) {
+    container.classList.add('nav');
+    container.innerHTML = navHtml;
+  }
+
+  const mobileEl = document.createElement('div');
+  mobileEl.id = 'navMobile';
+  mobileEl.className = 'nav-mobile';
+  mobileEl.innerHTML = mobileHtml;
+  if (container) container.insertAdjacentElement('afterend', mobileEl);
+
+  const onReady = () => {
+    function doLogout(e) {
+      e.preventDefault();
+      localStorage.removeItem('loggedIn');
+      localStorage.removeItem('username');
+      location.href = 'login.html';
+    }
+
+    const logoutBtn    = document.getElementById('logoutBtn');
+    const logoutMobile = document.getElementById('logoutMobile');
+    if (logoutBtn)    logoutBtn.addEventListener('click', doLogout);
+    if (logoutMobile) logoutMobile.addEventListener('click', doLogout);
+
+    const hamburger = document.getElementById('navHamburger');
+    const navMobile = document.getElementById('navMobile');
+    if (hamburger && navMobile) {
+      hamburger.addEventListener('click', () => {
+        const open = navMobile.classList.toggle('open');
+        hamburger.classList.toggle('open', open);
+        hamburger.setAttribute('aria-expanded', open);
+      });
+      navMobile.querySelectorAll('a').forEach(a => {
+        a.addEventListener('click', () => {
+          navMobile.classList.remove('open');
+          hamburger.classList.remove('open');
+        });
+      });
+    }
+  };
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', onReady);
+  } else { onReady(); }
+})();

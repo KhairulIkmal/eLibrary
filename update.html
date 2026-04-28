@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Update Wishlist</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link href="css/site.css" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Bungee&display=swap" rel="stylesheet" />
+  <script src="https://kit.fontawesome.com/3c6e6d7c17.js" crossorigin="anonymous"></script>
+  <style>
+    :root{ --bg:#000; --accent:#ff000086; --text:#fff; }
+    body{margin:0;background:var(--bg);color:var(--text);font-family:"Bungee",Arial,sans-serif;}
+    .wrap{max-width:1000px;margin:24px auto;padding:0 22px;}
+    table{width:100%;border-collapse:collapse;background:#0f0f0f;border:1px solid #222;border-radius:12px;overflow:hidden}
+    th,td{padding:12px;border-bottom:1px solid #222;text-align:left;font-size:14px}
+    th{background:#121212}
+    input,select{background:#121212;color:#fff;border:1px solid #222;border-radius:10px;padding:8px 10px;font-family:inherit}
+    button:not(.modal-btn):not(.action-btn){background:var(--accent);border:none;color:#fff;font-weight:700;cursor:pointer;font-family:inherit;border-radius:10px;padding:8px 10px;}
+    button:not(.modal-btn):not(.action-btn):hover{box-shadow:0 0 12px var(--accent)}
+    .filters{margin-bottom:12px; display:flex; gap:8px; flex-wrap:wrap;}
+
+  </style>
+</head>
+<body>
+  <!-- auth guard -->
+  <script> if (!localStorage.getItem('loggedIn')) { window.location.replace('login.html'); } </script>
+
+  <!-- Shared navbar -->
+  <nav id="app-nav"></nav>
+  <script src="js/nav.js" defer></script>
+
+  <div class="wrap">
+    <h1 style="margin-top:0">Update Wishlist</h1>
+    <div class="filters">
+      <input id="q" placeholder="Search title..." />
+      <select id="type">
+        <option value="">All Types</option>
+        <option value="anime">Anime</option>
+        <option value="manhwa">Manhwa</option>
+        <option value="manhua">Manhua</option>
+        <option value="manga">Manga</option>
+        <option value="movie">Movie</option>
+      </select>
+      <button id="searchBtn">Search</button>
+    </div>
+
+    <table id="tbl">
+      <thead>
+        <tr>
+          <th style="width:32px">#</th>
+          <th>Title</th>
+          <th>Type</th>
+          <th>Status</th>
+          <th>Last Chapter</th>
+          <th style="width:120px">Action</th>
+        </tr>
+      </thead>
+      <tbody id="rows"></tbody>
+    </table>
+  </div>
+
+  <!-- Confirm delete modal -->
+  <div class="modal-overlay" id="confirmModal">
+    <div class="modal">
+      <h3>Remove Item?</h3>
+      <p id="confirmMsg"></p>
+      <div class="modal-actions">
+        <button class="modal-btn modal-btn--cancel" id="cancelDelete">Cancel</button>
+        <button class="modal-btn modal-btn--danger" id="confirmDelete">Delete</button>
+      </div>
+    </div>
+  </div>
+
+  <script type="module">
+    import { getWishlist, updateWishlistItem, deleteWishlistItem } from "./js/firebase-service.js";
+    import { showToast } from "./js/toast.js";
+
+    const rows = document.getElementById('rows');
+    const q    = document.getElementById('q');
+    const type = document.getElementById('type');
+    const btn  = document.getElementById('searchBtn');
+    const modal = document.getElementById('confirmModal');
+    const confirmMsg = document.getElementById('confirmMsg');
+
+    let pendingDeleteId = null;
+    let pendingDeleteRow = null;
+
+    async function load(){
+      const items = await getWishlist({ q: q.value.trim(), type: type.value });
+      render(items);
+    }
+
+    function render(items){
+      rows.innerHTML = "";
+      items.forEach((it, i) => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td>${i+1}</td>
+          <td>${it.title}</td>
+          <td>${(it.type||'').toUpperCase()}</td>
+          <td>
+            <select data-id="${it.id}" class="status">
+              ${['completed','ongoing','reading','hiatus'].map(s => `<option value="${s}" ${it.status===s?'selected':''}>${s}</option>`).join('')}
+            </select>
+          </td>
+          <td><input data-id="${it.id}" class="last" placeholder="e.g. 123" value="${it.last_chapter||''}"></td>
+          <td style="display:flex;gap:6px;align-items:center">
+            <button data-id="${it.id}" class="save">Save</button>
+            <button data-id="${it.id}" data-title="${(it.title||'').replace(/"/g,'&quot;')}" class="action-btn action-btn--delete del">🗑</button>
+          </td>
+        `;
+        rows.appendChild(tr);
+      });
+
+      rows.querySelectorAll('.save').forEach(b=>{
+        b.addEventListener('click', async (e)=>{
+          const id = e.currentTarget.getAttribute('data-id');
+          const s  = document.querySelector(`select.status[data-id="${id}"]`).value;
+          const l  = document.querySelector(`input.last[data-id="${id}"]`).value.trim();
+          try {
+            await updateWishlistItem(id, { status: s, last_chapter: l });
+            showToast('Saved!', 'success');
+          } catch(err) {
+            showToast(err.message || 'Failed to save', 'error');
+          }
+        });
+      });
+
+      rows.querySelectorAll('.del').forEach(b=>{
+        b.addEventListener('click', (e)=>{
+          pendingDeleteId  = e.currentTarget.getAttribute('data-id');
+          pendingDeleteRow = e.currentTarget.closest('tr');
+          confirmMsg.textContent = `Remove "${e.currentTarget.dataset.title}"?`;
+          modal.classList.add('active');
+        });
+      });
+    }
+
+    document.getElementById('cancelDelete').addEventListener('click', () => {
+      modal.classList.remove('active');
+      pendingDeleteId = pendingDeleteRow = null;
+    });
+
+    document.getElementById('confirmDelete').addEventListener('click', async () => {
+      if (!pendingDeleteId) return;
+      modal.classList.remove('active');
+      try {
+        await deleteWishlistItem(pendingDeleteId);
+        if (pendingDeleteRow) pendingDeleteRow.remove();
+        showToast('Item deleted.', 'success');
+      } catch(err) {
+        showToast(err.message || 'Delete failed.', 'error');
+      }
+      pendingDeleteId = pendingDeleteRow = null;
+    });
+
+    btn.addEventListener('click', load);
+    q.addEventListener('keydown', (e)=>{ if(e.key==='Enter') load(); });
+    type.addEventListener('change', load);
+    load();
+  </script>
+</body>
+</html>

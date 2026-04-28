@@ -1,0 +1,365 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Seed Platforms</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link href="https://fonts.googleapis.com/css2?family=Bungee&display=swap" rel="stylesheet" />
+  <style>
+    :root{ --accent:#ff000086; }
+    body{ margin:0; background:#000; color:#fff; font-family:"Bungee",Arial,sans-serif; min-height:100vh; display:flex; flex-direction:column; align-items:center; justify-content:center; padding:30px; }
+    h1{ font-size:20px; margin-bottom:6px; }
+    p{ color:#666; font-size:12px; margin-bottom:24px; text-align:center; }
+    .cards{ display:flex; gap:14px; flex-wrap:wrap; justify-content:center; margin-bottom:30px; }
+    .type-card{
+      background:#111; border:1px solid #222; border-radius:16px; padding:24px 32px;
+      cursor:pointer; text-align:center; transition:all .2s; min-width:180px;
+    }
+    .type-card:hover{ border-color:rgba(255,0,0,0.4); box-shadow:0 0 20px rgba(255,0,0,0.2); }
+    .type-card i{ font-size:32px; display:block; margin-bottom:12px; color:#ff9999; }
+    .type-card .label{ font-size:14px; }
+    .type-card .count{ font-size:11px; color:#555; margin-top:4px; }
+    .btn{
+      background:var(--accent); border:none; color:#fff; padding:14px 32px;
+      border-radius:12px; cursor:pointer; font-family:"Bungee",Arial,sans-serif;
+      font-size:14px; transition:box-shadow .15s;
+    }
+    .btn:hover{ box-shadow:0 0 18px var(--accent); }
+    .btn:disabled{ opacity:.5; cursor:not-allowed; }
+    #log{
+      margin-top:20px; max-width:560px; width:100%; max-height:320px; overflow-y:auto;
+      background:#0a0a0a; border:1px solid #1e1e1e; border-radius:12px;
+      padding:14px; font-size:11px; color:#888; line-height:1.8; display:none;
+    }
+    .ok{ color:#4caf50; } .err{ color:#f44336; } .info{ color:#ff9999; }
+    a.back{ color:#555; font-size:12px; text-decoration:none; margin-top:16px; }
+    a.back:hover{ color:#fff; }
+  </style>
+  <script src="https://kit.fontawesome.com/3c6e6d7c17.js" crossorigin="anonymous"></script>
+</head>
+<body>
+  <script> if (!localStorage.getItem('loggedIn')) { window.location.replace('login.html'); } </script>
+
+  <h1>Seed Platforms</h1>
+  <p>Pre-populate your library with real streaming & reading platforms.<br>Already added platforms will be skipped.</p>
+
+  <div class="cards">
+    <div class="type-card" id="card-streaming">
+      <i class="fa-solid fa-tv"></i>
+      <div class="label">Streaming</div>
+      <div class="count">13 platforms</div>
+    </div>
+    <div class="type-card" id="card-webtoon">
+      <i class="fa-solid fa-book-open"></i>
+      <div class="label">Reading</div>
+      <div class="count">14 platforms</div>
+    </div>
+  </div>
+
+  <button class="btn" id="seedBtn" disabled>Select a type above</button>
+  <button class="btn" id="clearBtn" style="background:#1a1a1a;border:1px solid #333;color:#bbb;margin-top:8px;font-size:11px;padding:10px 22px" disabled>
+    <i class="fa-solid fa-trash"></i> Clear existing &amp; re-seed
+  </button>
+  <div id="log"></div>
+  <a class="back" href="platforms.html">← Back to Platforms</a>
+
+  <script type="module">
+    import { initializeApp }        from "https://www.gstatic.com/firebasejs/11.6.0/firebase-app.js";
+    import { getFirestore, collection, addDoc, getDocs,
+             query, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.6.0/firebase-firestore.js";
+    import { firebaseConfig }       from "./js/firebase-config.js";
+
+    const app = initializeApp(firebaseConfig);
+    const db  = getFirestore(app);
+
+    /* ── Platform data ───────────────────────────────── */
+    // Uses Google's favicon service — reliable, no API key needed
+    function fav(domain) {
+      return `https://t1.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=https://${domain}&size=128`;
+    }
+
+    const STREAMING = [
+      {
+        name: "Crunchyroll", url: "https://www.crunchyroll.com",
+        language: "en", tags: ["Free","Premium","Sub","Official"],
+        notes: "Largest legal anime library. Free tier has ads.",
+        icon_path: fav("crunchyroll.com")
+      },
+      {
+        name: "HIDIVE", url: "https://www.hidive.com",
+        language: "en", tags: ["Premium","Sub","Dub","Official"],
+        notes: "Simulcasts + catalog. Dub selection is strong.",
+        icon_path: fav("hidive.com")
+      },
+      {
+        name: "Funimation", url: "https://www.funimation.com",
+        language: "en", tags: ["Premium","Sub","Dub","Official"],
+        notes: "Now merging into Crunchyroll. Good dub library.",
+        icon_path: fav("funimation.com")
+      },
+      {
+        name: "Netflix", url: "https://www.netflix.com",
+        language: "en", tags: ["Premium","Sub","Dub","Official"],
+        notes: "Decent anime originals. Search 'anime' category.",
+        icon_path: fav("netflix.com")
+      },
+      {
+        name: "Disney+", url: "https://www.disneyplus.com",
+        language: "en", tags: ["Premium","Sub","Dub","Official"],
+        notes: "Star Wars anime, some exclusives.",
+        icon_path: fav("disneyplus.com")
+      },
+      {
+        name: "Amazon Prime Video", url: "https://www.primevideo.com",
+        language: "en", tags: ["Premium","Sub","Dub","Official"],
+        notes: "Some exclusives like Vinland Saga S1.",
+        icon_path: fav("primevideo.com")
+      },
+      {
+        name: "Bilibili", url: "https://www.bilibili.tv",
+        language: "all", tags: ["Free","Sub","Official"],
+        notes: "Multi-language. Strong for Chinese anime (donghua).",
+        icon_path: fav("bilibili.tv")
+      },
+      {
+        name: "WeTV", url: "https://wetv.vip",
+        language: "id", tags: ["Free","Premium","Sub","Official"],
+        notes: "C-Drama & K-Drama. Indonesian dubs available.",
+        icon_path: fav("wetv.vip")
+      },
+      {
+        name: "Viki", url: "https://www.viki.com",
+        language: "en", tags: ["Free","Premium","Sub","Official"],
+        notes: "Best for K-Drama. Community subtitles.",
+        icon_path: fav("viki.com")
+      },
+      {
+        name: "VIU", url: "https://www.viu.com",
+        language: "id", tags: ["Free","Premium","Sub","Official"],
+        notes: "K-Drama & Asian content. Strong in SEA.",
+        icon_path: fav("viu.com")
+      },
+      {
+        name: "Aniwatch", url: "https://aniwatch.to",
+        language: "en", tags: ["Free","Sub","Dub","Fan-TL"],
+        notes: "Huge free library. Ad-supported. Mirrors may vary.",
+        icon_path: fav("aniwatch.to")
+      },
+      {
+        name: "Gogoanime", url: "https://gogoanime.tel",
+        language: "en", tags: ["Free","Sub","Dub","Fan-TL"],
+        notes: "Classic fan streaming site. Many mirrors exist.",
+        icon_path: fav("gogoanime.tel")
+      },
+      {
+        name: "9anime", url: "https://9anime.to",
+        language: "en", tags: ["Free","Sub","Fan-TL"],
+        notes: "Fast streams. May have region blocks.",
+        icon_path: fav("9anime.to")
+      },
+    ];
+
+    const WEBTOON = [
+      {
+        name: "WEBTOON", url: "https://www.webtoons.com",
+        language: "en", tags: ["Free","Premium","Official"],
+        notes: "Official platform. Huge catalog of originals & licensed.",
+        icon_path: fav("webtoons.com")
+      },
+      {
+        name: "MangaDex", url: "https://mangadex.org",
+        language: "en", tags: ["Free","Fan-TL"],
+        notes: "Best fan-TL hub. Manhwa, manga, manhua all here.",
+        icon_path: fav("mangadex.org")
+      },
+      {
+        name: "MangaPlus", url: "https://mangaplus.shueisha.co.jp",
+        language: "en", tags: ["Free","Official"],
+        notes: "Shueisha official. Free latest + first chapters.",
+        icon_path: fav("mangaplus.shueisha.co.jp")
+      },
+      {
+        name: "Asura Scans", url: "https://asuracomic.net",
+        language: "en", tags: ["Free","Fan-TL"],
+        notes: "Top-tier manhwa scans. Fast updates.",
+        icon_path: fav("asuracomic.net")
+      },
+      {
+        name: "Flame Comics", url: "https://flamecomics.me",
+        language: "en", tags: ["Free","Fan-TL"],
+        notes: "Fast releases. Action & fantasy manhwa.",
+        icon_path: fav("flamecomics.me")
+      },
+      {
+        name: "Reaper Scans", url: "https://reaperscans.com",
+        language: "en", tags: ["Free","Fan-TL"],
+        notes: "Quality manhwa & manhua fan translations.",
+        icon_path: fav("reaperscans.com")
+      },
+      {
+        name: "Luminous Scans", url: "https://luminousscans.com",
+        language: "en", tags: ["Free","Fan-TL"],
+        notes: "Manhwa scanlation group. Good selection.",
+        icon_path: fav("luminousscans.com")
+      },
+      {
+        name: "Bato.to", url: "https://bato.to",
+        language: "en", tags: ["Free","Fan-TL"],
+        notes: "Community uploads. Wide variety of titles.",
+        icon_path: fav("bato.to")
+      },
+      {
+        name: "Comick", url: "https://comick.io",
+        language: "en", tags: ["Free","Fan-TL"],
+        notes: "Clean UI. Covers manga, manhwa, manhua.",
+        icon_path: fav("comick.io")
+      },
+      {
+        name: "Manganato", url: "https://manganato.com",
+        language: "en", tags: ["Free","Fan-TL"],
+        notes: "Large manga & manhwa library. Fast load.",
+        icon_path: fav("manganato.com")
+      },
+      {
+        name: "Tapas", url: "https://tapas.io",
+        language: "en", tags: ["Free","Premium","Official"],
+        notes: "Original webcomics & novels. Ink currency system.",
+        icon_path: fav("tapas.io")
+      },
+      {
+        name: "Tappytoon", url: "https://www.tappytoon.com",
+        language: "en", tags: ["Premium","Official"],
+        notes: "Licensed manhwa. High quality translations.",
+        icon_path: fav("tappytoon.com")
+      },
+      {
+        name: "Naver Webtoon", url: "https://webtoon.naver.com",
+        language: "kr", tags: ["Free","Official"],
+        notes: "Korean originals. Source of many popular manhwa.",
+        icon_path: fav("naver.com")
+      },
+      {
+        name: "Kakao Webtoon", url: "https://webtoon.kakao.com",
+        language: "kr", tags: ["Free","Premium","Official"],
+        notes: "Korean originals. Many adapted to drama & anime.",
+        icon_path: fav("kakao.com")
+      },
+    ];
+
+    /* ── UI state ────────────────────────────────────── */
+    let selectedType = null;
+    let selectedData = null;
+    const log = document.getElementById('log');
+    const btn = document.getElementById('seedBtn');
+
+    function logLine(msg, cls = '') {
+      log.style.display = 'block';
+      log.innerHTML += `<div class="${cls}">${msg}</div>`;
+      log.scrollTop = log.scrollHeight;
+    }
+
+    function selectType(type, data) {
+      selectedType = type;
+      selectedData = data;
+      document.querySelectorAll('.type-card').forEach(c => c.style.borderColor = '');
+      document.getElementById(`card-${type}`).style.borderColor = 'rgba(255,0,0,0.5)';
+      btn.disabled = false;
+      btn.textContent = `Add ${data.length} ${type === 'streaming' ? 'Streaming' : 'Reading'} Platforms`;
+      document.getElementById('clearBtn').disabled = false;
+    }
+
+    document.getElementById('card-streaming').addEventListener('click', () => selectType('streaming', STREAMING));
+    document.getElementById('card-webtoon').addEventListener('click',   () => selectType('webtoon',   WEBTOON));
+
+    btn.addEventListener('click', async () => {
+      if (!selectedType || !selectedData) return;
+      btn.disabled = true;
+      btn.textContent = 'Seeding...';
+      log.innerHTML = '';
+      log.style.display = 'block';
+
+      logLine(`<span class="info">── Seeding ${selectedType} platforms ──</span>`);
+
+      // Fetch existing names to avoid duplicates
+      const snap = await getDocs(query(collection(db, 'platforms')));
+      const existingNames = new Set(
+        snap.docs
+          .filter(d => d.data().type === selectedType)
+          .map(d => (d.data().name || '').toLowerCase())
+      );
+
+      let added = 0, skipped = 0;
+
+      for (const p of selectedData) {
+        if (existingNames.has(p.name.toLowerCase())) {
+          logLine(`⟳ Skipped — already exists: ${p.name}`, 'info');
+          skipped++;
+          continue;
+        }
+        try {
+          await addDoc(collection(db, 'platforms'), {
+            type:         selectedType,
+            name:         p.name,
+            url:          p.url,
+            language:     p.language,
+            notes:        p.notes,
+            tags:         p.tags,
+            icon_path:    p.icon_path,
+            visit_count:  0,
+            last_visited: null,
+            created_at:   serverTimestamp(),
+          });
+          logLine(`✓ Added: ${p.name}`, 'ok');
+          added++;
+        } catch (err) {
+          logLine(`✕ Failed: ${p.name} — ${err.message}`, 'err');
+        }
+      }
+
+      logLine(`<span class="info">── Done: ${added} added, ${skipped} skipped ──</span>`);
+      btn.textContent = 'Done!';
+      setTimeout(() => { location.href = `platforms.html?type=${selectedType}`; }, 1800);
+    });
+
+    /* ── Clear & re-seed ─────────────────────────────── */
+    document.getElementById('clearBtn').addEventListener('click', async () => {
+      if (!selectedType || !selectedData) return;
+      if (!confirm(`Delete ALL existing ${selectedType} platforms and re-seed fresh icons?`)) return;
+
+      document.getElementById('clearBtn').disabled = true;
+      btn.disabled = true;
+      log.innerHTML = '';
+      log.style.display = 'block';
+      logLine(`<span class="info">── Clearing ${selectedType} platforms ──</span>`);
+
+      const { deleteDoc, doc } = await import("https://www.gstatic.com/firebasejs/11.6.0/firebase-firestore.js");
+      const snap2 = await getDocs(query(collection(db, 'platforms')));
+      const toDelete = snap2.docs.filter(d => d.data().type === selectedType);
+      for (const d of toDelete) {
+        await deleteDoc(doc(db, 'platforms', d.id));
+        logLine(`✕ Removed: ${d.data().name || d.id}`, 'err');
+      }
+
+      logLine(`<span class="info">── Adding fresh data ──</span>`);
+      let added2 = 0;
+      for (const p of selectedData) {
+        try {
+          await addDoc(collection(db, 'platforms'), {
+            type: selectedType, name: p.name, url: p.url,
+            language: p.language, notes: p.notes, tags: p.tags,
+            icon_path: p.icon_path, visit_count: 0,
+            last_visited: null, created_at: serverTimestamp(),
+          });
+          logLine(`✓ Added: ${p.name}`, 'ok');
+          added2++;
+        } catch (err) {
+          logLine(`✕ Failed: ${p.name} — ${err.message}`, 'err');
+        }
+      }
+      logLine(`<span class="info">── Done: ${added2} added ──</span>`);
+      btn.textContent = 'Done!';
+      setTimeout(() => { location.href = `platforms.html?type=${selectedType}`; }, 1800);
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>My E-Library — Login</title>
+  <link rel="stylesheet" href="css/style.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Bungee&display=swap" rel="stylesheet" />
+  <script src="https://kit.fontawesome.com/3c6e6d7c17.js" crossorigin="anonymous"></script>
+</head>
+<body>
+
+  <!-- animated background orbs -->
+  <div class="bg-orb orb-1"></div>
+  <div class="bg-orb orb-2"></div>
+  <div class="bg-orb orb-3"></div>
+
+  <div class="login-wrap">
+    <div class="login-card" id="loginCard">
+
+      <!-- Brand -->
+      <div class="login-brand">
+        <div class="login-logo">
+          <img src="main.jpg" alt="E-Library Logo" />
+        </div>
+        <h1 class="login-title">My E-Library</h1>
+        <p class="login-sub">Welcome back, Feronix</p>
+      </div>
+
+      <!-- Form -->
+      <form id="loginForm" autocomplete="off">
+
+        <div class="field-group">
+          <label for="username"><i class="fa-solid fa-user"></i> Username</label>
+          <input type="text" id="username" placeholder="Enter your username" required autocomplete="username" />
+        </div>
+
+        <div class="field-group">
+          <label for="password"><i class="fa-solid fa-lock"></i> Password</label>
+          <div class="pw-wrap">
+            <input type="password" id="password" placeholder="Enter your password" required autocomplete="current-password" />
+            <button type="button" class="pw-toggle" id="pwToggle" aria-label="Toggle password visibility">
+              <i class="fa-solid fa-eye"></i>
+            </button>
+          </div>
+        </div>
+
+        <div id="errMsg" class="err-msg"></div>
+
+        <button type="submit" id="loginBtn" class="login-btn">
+          <span id="btnText">Login</span>
+          <i class="fa-solid fa-arrow-right-to-bracket"></i>
+        </button>
+
+      </form>
+    </div>
+  </div>
+
+  <script>
+    const form     = document.getElementById('loginForm');
+    const card     = document.getElementById('loginCard');
+    const loginBtn = document.getElementById('loginBtn');
+    const btnText  = document.getElementById('btnText');
+    const pwInput  = document.getElementById('password');
+    const pwToggle = document.getElementById('pwToggle');
+    const errMsg   = document.getElementById('errMsg');
+
+    pwToggle.addEventListener('click', () => {
+      const show = pwInput.type === 'password';
+      pwInput.type = show ? 'text' : 'password';
+      pwToggle.querySelector('i').className = show ? 'fa-solid fa-eye-slash' : 'fa-solid fa-eye';
+    });
+
+    form.addEventListener('submit', function(e) {
+      e.preventDefault();
+      const user = document.getElementById('username').value.trim();
+      const pass = pwInput.value.trim();
+
+      loginBtn.disabled = true;
+      btnText.textContent = 'Logging in...';
+      errMsg.textContent = '';
+
+      setTimeout(() => {
+        if (user === 'Feronix' && pass === 'pass123') {
+          localStorage.setItem('loggedIn', '1');
+          localStorage.setItem('username', user);
+          loginBtn.classList.add('success');
+          btnText.textContent = 'Welcome!';
+          setTimeout(() => { window.location.href = 'home.html'; }, 600);
+        } else {
+          card.classList.remove('shake');
+          void card.offsetWidth;
+          card.classList.add('shake');
+          errMsg.textContent = 'Invalid username or password.';
+          loginBtn.disabled = false;
+          btnText.textContent = 'Login';
+        }
+      }, 400);
+    });
+  </script>
+
+</body>
+</html>

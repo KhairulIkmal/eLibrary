@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>E-Library Home</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link href="css/site.css" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Bungee&display=swap" rel="stylesheet" />
+  <script src="https://kit.fontawesome.com/3c6e6d7c17.js" crossorigin="anonymous"></script>
+  <style>
+    :root{
+      --bg:#000000; --accent:#ff000086; --card:#111; --text:#f5f5f5; --muted:#bbbbbb; --chip:#1a1a1a;
+    }
+    .flag{ width:16px; height:12px; display:inline-block; border-radius:2px; object-fit:cover; }
+    .links{display:flex;flex-wrap:wrap;gap:8px;margin-top:6px}
+    *{box-sizing:border-box}
+    body{ margin:0; background:var(--bg); color:var(--text); font-family:"Bungee", Arial, sans-serif; min-height:100vh; display:flex; flex-direction:column; }
+
+    /* TABS */
+    .tabs-bar{
+      display:flex; gap:4px; padding:10px 22px; align-items:center;
+      background:#050505; border-bottom:1px solid #1a1a1a;
+      position:sticky; top:60px; z-index:60; overflow-x:auto;
+    }
+    .tab{
+      display:inline-flex; align-items:center; gap:7px; padding:7px 15px;
+      border-radius:10px; border:1px solid transparent; cursor:pointer;
+      font-family:"Bungee",Arial,sans-serif; font-size:12px; color:#555;
+      background:transparent; white-space:nowrap; transition:all .15s;
+    }
+    .tab:hover{ color:#ccc; background:rgba(255,255,255,0.05); }
+    .tab.active{
+      color:#fff; background:rgba(255,0,0,0.15);
+      border-color:rgba(255,0,0,0.3);
+      box-shadow:0 0 10px rgba(255,0,0,0.08);
+    }
+    .tab i{ font-size:12px; }
+
+    /* SEARCH */
+    .toolbar{ display:flex; gap:10px; padding:12px 22px; align-items:center; flex-wrap:wrap; background:#0a0a0a; border-bottom:1px solid rgba(255,0,0,0.1); position:sticky; top:108px; z-index:55; }
+    .search{ flex:1; min-width:220px; display:flex; align-items:center; gap:8px; background:#0f0f0f; border:1px solid #222; border-radius:12px; padding:10px 12px; transition:border-color .15s; }
+    .search:focus-within{ border-color:rgba(255,0,0,0.4); }
+    .search input{ flex:1; border:none; outline:none; background:transparent; color:#fff; font-size:13px; font-family:"Bungee",Arial,sans-serif; }
+    .filter{ display:flex; gap:10px; align-items:center; }
+    .select, .btn{ background:#121212; color:#fff; border:1px solid #222; border-radius:12px; padding:10px 12px; cursor:pointer; font-family:"Bungee",Arial,sans-serif; font-size:12px; outline:none; }
+    .btn{ background:var(--accent); border:none; font-weight:700; }
+    .btn:hover{ box-shadow:0 0 14px var(--accent); }
+
+    /* GALLERY */
+    .wrap{ padding:22px; }
+    .grid{ display:grid; gap:18px; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); }
+    .card{ background:var(--card); border:1px solid #1b1b1b; border-radius:16px; overflow:hidden;
+           box-shadow:0 6px 16px rgba(0,0,0,0.35); position:relative; transition:transform .15s ease, box-shadow .2s;
+           text-decoration:none; color:inherit; display:block; cursor:pointer; }
+    .card:hover{ transform:translateY(-4px); box-shadow:0 12px 28px rgba(255,0,0,0.2), 0 0 0 1px rgba(255,0,0,0.15); }
+    .thumb{ width:100%; aspect-ratio:3/4; object-fit:cover; display:block; background:#0d0d0d; }
+    .content{ padding:12px; }
+    .title{ font-size:16px; line-height:1.2; margin:0 0 6px; }
+    .meta{ color:var(--muted); font-size:12px; margin-bottom:8px; display:flex; gap:8px; flex-wrap:wrap; }
+    .chip{ background:#1a1a1a; padding:4px 8px; border-radius:999px; border:1px solid #222; font-size:11px; }
+    .row{ display:flex; gap:10px; align-items:center; }
+    .link, .preview{ text-decoration:none; font-size:12px; padding:8px 10px; border-radius:10px; border:1px solid #222;
+                     display:inline-flex; align-items:center; gap:6px; color:#fff; background:#141414; }
+    .link:hover, .preview:hover{ border-color:var(--accent); box-shadow:0 0 10px var(--accent); }
+    .icon{ width:16px; height:16px; display:inline-block; }
+    .empty{ opacity:.7; text-align:center; padding:40px; border:1px dashed #333; border-radius:16px; margin-top:20px; }
+
+    /* FAB */
+    .fab{ position:fixed; right:22px; bottom:22px; width:56px; height:56px; border-radius:50%;
+          background:var(--accent); color:#fff; display:flex; align-items:center; justify-content:center;
+          font-size:28px; font-weight:900; cursor:pointer; box-shadow:0 10px 20px rgba(255,0,0,0.25); border: none; }
+    .fab:hover{ box-shadow:0 0 16px var(--accent); transform:translateY(-1px); }
+  </style>
+</head>
+<body>
+  <!-- auth guard -->
+  <script> if (!localStorage.getItem('loggedIn')) { window.location.replace('login.html'); } </script>
+
+  <!-- Shared navbar -->
+  <nav id="app-nav"></nav>
+  <script src="js/nav.js" defer></script>
+
+  <!-- TYPE TABS -->
+  <div class="tabs-bar">
+    <button class="tab active" data-type=""><i class="fa-solid fa-border-all"></i> All</button>
+    <button class="tab" data-type="anime">  <i class="fa-solid fa-tv"></i>        Anime</button>
+    <button class="tab" data-type="manhwa"> <i class="fa-solid fa-book-open"></i>  Manhwa</button>
+    <button class="tab" data-type="manhua"> <i class="fa-solid fa-book"></i>       Manhua</button>
+    <button class="tab" data-type="manga">  <i class="fa-solid fa-scroll"></i>     Manga</button>
+    <button class="tab" data-type="movie">  <i class="fa-solid fa-film"></i>       Movies</button>
+  </div>
+
+  <!-- SEARCH / FILTER -->
+  <section class="toolbar">
+    <div class="search">
+      <svg class="icon" viewBox="0 0 24 24" fill="currentColor"><path d="M10 2a8 8 0 015.292 13.707l4.5 4.5-1.414 1.414-4.5-4.5A8 8 0 1110 2zm0 2a6 6 0 100 12A6 6 0 0010 4z"/></svg>
+      <input id="q" type="text" placeholder="Search title or genre..." />
+    </div>
+    <div class="filter">
+      <select id="status" class="select">
+        <option value="">All Status</option>
+        <option value="completed">Completed</option>
+        <option value="ongoing">Ongoing</option>
+        <option value="reading">Reading</option>
+        <option value="hiatus">Hiatus</option>
+      </select>
+      <button id="searchBtn" class="btn">Search</button>
+    </div>
+  </section>
+
+  <!-- GALLERY -->
+  <main class="wrap">
+    <div id="grid" class="grid"></div>
+    <div id="empty" class="empty" style="display:none;">
+      <i class="fa-solid fa-book-open" style="font-size:48px;opacity:.3;display:block;margin-bottom:12px"></i>
+      <p style="margin:0 0 6px">No items found.</p>
+      <p style="font-size:12px;color:#666;margin:0">Adjust your filters or <a href="add.html" style="color:#ff4444">add a new item</a>.</p>
+    </div>
+  </main>
+
+  <!-- Floating Add button -->
+  <button class="fab" title="Add Wishlist" onclick="location.href='add.html'">+</button>
+
+  <!-- Page logic -->
+  <script type="module">
+    import { getWishlist } from "./js/firebase-service.js";
+
+    function langMeta(code){
+      switch((code||'').toLowerCase()){
+        case 'id':  return { name: 'Indonesian', icon: 'assets/flags/id.png' };
+        case 'kr':  return { name: 'Korean',     icon: 'assets/flags/kr.png' };
+        case 'my':  return { name: 'Malay',      icon: 'assets/flags/my.png' };
+        default:    return { name: 'English',    icon: 'assets/flags/gb.png' };
+      }
+    }
+
+    const grid      = document.getElementById('grid');
+    const empty     = document.getElementById('empty');
+    const q         = document.getElementById('q');
+    const statusSel = document.getElementById('status');
+    const btn       = document.getElementById('searchBtn');
+
+    let activeType = '';
+
+    // Tab wiring
+    document.querySelectorAll('.tab').forEach(tab => {
+      tab.addEventListener('click', () => {
+        document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+        tab.classList.add('active');
+        activeType = tab.dataset.type;
+        load();
+      });
+    });
+
+    function showSkeletons() {
+      grid.innerHTML = '';
+      empty.style.display = 'none';
+      for (let i = 0; i < 8; i++) {
+        grid.insertAdjacentHTML('beforeend', `
+          <div class="skeleton-card">
+            <div class="skeleton-thumb"></div>
+            <div class="skeleton-line"></div>
+            <div class="skeleton-line short"></div>
+          </div>
+        `);
+      }
+    }
+
+    async function load(){
+      showSkeletons();
+      const items = await getWishlist({
+        q:      q.value.trim(),
+        type:   activeType,
+        status: statusSel ? statusSel.value : ""
+      });
+      render(items);
+    }
+
+    function render(items){
+      grid.innerHTML = "";
+      if (!items || items.length === 0){ empty.style.display = 'block'; return; }
+      empty.style.display = 'none';
+
+      items.forEach(it => {
+        const imgSrc = it.cover_path ? it.cover_path : (it.cover_url || 'https://via.placeholder.com/400x533?text=No+Image');
+        const status = (it.status || '').toUpperCase();
+        const last   = it.last_chapter ? `Ch. ${it.last_chapter}` : '';
+
+        const card = document.createElement('a');
+        card.className = 'card';
+        card.href = `detail.html?id=${it.id}`;
+        card.innerHTML = `
+          <img class="thumb" src="${imgSrc}" alt="${it.title || ''}" onerror="this.src='https://via.placeholder.com/400x533?text=No+Image'">
+          <div class="content">
+            <h3 class="title">${it.title || ''}</h3>
+            <div class="meta">
+              <span class="chip">${(it.type||'').toUpperCase()}</span>
+              ${it.genre ? `<span class="chip">${it.genre}</span>` : ``}
+              ${status ? `<span class="chip">${status}</span>` : ``}
+              ${last ? `<span class="chip">${last}</span>` : ``}
+            </div>
+          </div>
+        `;
+        grid.appendChild(card);
+      });
+    }
+
+    grid.addEventListener('click', (e) => {
+      // cards are <a> tags now — native navigation handles it
+    });
+
+    if (btn) btn.addEventListener('click', load);
+    if (q) q.addEventListener('keydown', (e)=>{ if(e.key === 'Enter') load(); });
+    if (statusSel) statusSel.addEventListener('change', load);
+
+    load();
+  </script>
+</body>
+</html>

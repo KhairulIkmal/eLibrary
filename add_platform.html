@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Add Platform</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link href="css/site.css" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Bungee&display=swap" rel="stylesheet" />
+  <script src="https://kit.fontawesome.com/3c6e6d7c17.js" crossorigin="anonymous"></script>
+  <style>
+    :root{ --bg:#000; --accent:#ff000086; --text:#fff; }
+    body{ margin:0; background:var(--bg); color:var(--text); font-family:"Bungee",Arial,sans-serif; min-height:100vh; }
+    .wrap{ max-width:720px; margin:24px auto; padding:0 22px; }
+    form{ display:grid; grid-template-columns:1fr 1fr; gap:14px; background:#0f0f0f; border:1px solid #222; padding:20px; border-radius:14px; }
+    label{ font-size:12px; color:#bbb; display:block; margin-bottom:6px; }
+    input,select,textarea{ width:100%; padding:10px; border-radius:10px; border:1px solid #222; background:#121212; color:#fff; outline:none; font-family:"Bungee",Arial,sans-serif; font-size:12px; box-sizing:border-box; transition:border-color .15s; }
+    input:focus,select:focus,textarea:focus{ border-color:rgba(255,0,0,0.4); }
+    textarea{ resize:vertical; min-height:70px; }
+    .row-2{ grid-column:span 2; }
+    .btn{ background:var(--accent); border:none; color:#fff; padding:12px; border-radius:12px; cursor:pointer; font-weight:700; font-family:"Bungee",Arial,sans-serif; transition:box-shadow .15s; }
+    .btn:hover:not(:disabled){ box-shadow:0 0 14px var(--accent); }
+    .btn:disabled{ opacity:.6; cursor:not-allowed; }
+    .msg{ margin-top:12px; font-size:13px; }
+
+    /* tag checkboxes */
+    .tag-grid{ display:flex; flex-wrap:wrap; gap:8px; margin-top:4px; }
+    .tag-opt{ display:none; }
+    .tag-lbl{
+      padding:5px 12px; border-radius:999px; border:1px solid #333;
+      background:#181818; font-size:11px; color:#888; cursor:pointer;
+      transition:all .15s; user-select:none;
+    }
+    .tag-opt:checked + .tag-lbl{ border-color:rgba(255,0,0,0.4); background:rgba(255,0,0,0.12); color:#ff9999; }
+  </style>
+</head>
+<body>
+  <script> if (!localStorage.getItem('loggedIn')) { window.location.replace('login.html'); } </script>
+  <nav id="app-nav"></nav>
+  <script src="js/nav.js" defer></script>
+
+  <div class="wrap">
+    <a id="backBtn" href="platforms.html" class="back-btn"><i class="fa-solid fa-arrow-left"></i> Back</a>
+    <h1 id="title" style="margin-top:0">Add Platform</h1>
+
+    <form id="f">
+      <input type="hidden" id="type" name="type">
+
+      <div class="row-2">
+        <label>Name</label>
+        <input name="name" id="name" required>
+        <span class="field-error" id="err-name"></span>
+      </div>
+
+      <div class="row-2">
+        <label>URL</label>
+        <input name="url" id="url" placeholder="https://..." required>
+        <span class="field-error" id="err-url"></span>
+      </div>
+
+      <div>
+        <label>Language</label>
+        <select name="language" id="language">
+          <option value="en">English</option>
+          <option value="id">Indonesian</option>
+          <option value="kr">Korean</option>
+          <option value="my">Malay</option>
+          <option value="all">Multi-language</option>
+        </select>
+      </div>
+
+      <div>
+        <label>Notes <span style="color:#555;font-size:10px">(optional)</span></label>
+        <input name="notes" id="notes" placeholder="e.g. Free up to Ch.50, needs VPN...">
+      </div>
+
+      <div class="row-2">
+        <label>Tags</label>
+        <div class="tag-grid">
+          <input class="tag-opt" type="checkbox" id="tag-free"     value="Free"     name="tags"><label class="tag-lbl" for="tag-free">Free</label>
+          <input class="tag-opt" type="checkbox" id="tag-premium"  value="Premium"  name="tags"><label class="tag-lbl" for="tag-premium">Premium</label>
+          <input class="tag-opt" type="checkbox" id="tag-sub"      value="Sub"      name="tags"><label class="tag-lbl" for="tag-sub">Sub</label>
+          <input class="tag-opt" type="checkbox" id="tag-dub"      value="Dub"      name="tags"><label class="tag-lbl" for="tag-dub">Dub</label>
+          <input class="tag-opt" type="checkbox" id="tag-official" value="Official" name="tags"><label class="tag-lbl" for="tag-official">Official</label>
+          <input class="tag-opt" type="checkbox" id="tag-fantl"    value="Fan-TL"   name="tags"><label class="tag-lbl" for="tag-fantl">Fan-TL</label>
+        </div>
+      </div>
+
+      <div class="row-2">
+        <label>Icon (upload)</label>
+        <img id="iconPreview" style="width:72px;height:72px;border-radius:50%;object-fit:cover;background:#111;display:none;margin-bottom:8px;border:2px solid rgba(255,0,0,0.3)" alt="Icon preview">
+        <input type="file" name="icon_file" id="iconFile" accept="image/*" required>
+        <span class="field-error" id="err-icon"></span>
+      </div>
+
+      <div class="row-2" style="display:flex;gap:12px;align-items:center">
+        <button class="btn" type="submit" id="saveBtn">Save Platform</button>
+        <div id="msg" class="msg"></div>
+      </div>
+    </form>
+  </div>
+
+  <script type="module">
+    import { addPlatform } from "./js/firebase-service.js";
+    import { showToast }   from "./js/toast.js";
+
+    const p = new URLSearchParams(location.search);
+    const t = (p.get('type') === 'webtoon') ? 'webtoon' : 'streaming';
+    document.getElementById('type').value = t;
+    document.getElementById('title').textContent   = t === 'webtoon' ? 'Add Webtoon Platform' : 'Add Streaming Platform';
+    document.getElementById('backBtn').href = `platforms.html?type=${t}`;
+
+    const f        = document.getElementById('f');
+    const saveBtn  = document.getElementById('saveBtn');
+    const iconFile = document.getElementById('iconFile');
+    const iconPreview = document.getElementById('iconPreview');
+
+    iconFile.addEventListener('change', e => {
+      const file = e.target.files[0];
+      if (file){ iconPreview.src = URL.createObjectURL(file); iconPreview.style.display = 'block'; }
+    });
+
+    f.name.addEventListener('blur', () => {
+      const empty = !f.name.value.trim();
+      document.getElementById('err-name').textContent = empty ? 'Name is required.' : '';
+      f.name.classList.toggle('invalid', empty);
+    });
+    f.url.addEventListener('blur', () => {
+      const empty = !f.url.value.trim();
+      document.getElementById('err-url').textContent = empty ? 'URL is required.' : '';
+      f.url.classList.toggle('invalid', empty);
+    });
+    iconFile.addEventListener('blur', () => {
+      document.getElementById('err-icon').textContent = !iconFile.files.length ? 'Icon is required.' : '';
+    });
+
+    f.addEventListener('submit', async e => {
+      e.preventDefault();
+      if (!f.name.value.trim()){ showToast('Name is required.', 'error'); return; }
+      if (!f.url.value.trim()) { showToast('URL is required.',  'error'); return; }
+      if (!iconFile.files.length){ showToast('Please choose an icon.', 'error'); return; }
+
+      const tags = [...f.querySelectorAll('input[name="tags"]:checked')].map(c => c.value);
+
+      saveBtn.disabled = true; saveBtn.textContent = 'Saving...';
+      try {
+        await addPlatform({
+          type:     t,
+          name:     f.name.value.trim(),
+          url:      f.url.value.trim(),
+          language: f.language.value,
+          notes:    f.notes.value.trim(),
+          tags,
+        }, iconFile.files[0]);
+        showToast('Platform added!', 'success');
+        setTimeout(() => { location.href = `platforms.html?type=${t}`; }, 900);
+      } catch(err) {
+        showToast(err.message || 'Something went wrong.', 'error');
+      } finally { saveBtn.disabled = false; saveBtn.textContent = 'Save Platform'; }
+    });
+  </script>
+</body>
+</html>

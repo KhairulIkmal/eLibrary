@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Detail</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link href="css/site.css" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Bungee&display=swap" rel="stylesheet" />
+  <script src="https://kit.fontawesome.com/3c6e6d7c17.js" crossorigin="anonymous"></script>
+  <style>
+    :root{ --bg:#000; --accent:#ff000086; --text:#fff; --muted:#999; }
+    body{ margin:0; background:var(--bg); color:var(--text); font-family:"Bungee",Arial,sans-serif; min-height:100vh; }
+
+    .wrap{ max-width:1000px; margin:0 auto; padding:24px 22px 60px; }
+
+    /* ── HERO ── */
+    .hero{ display:grid; grid-template-columns:220px 1fr; gap:32px; align-items:start; margin-bottom:36px; }
+    @media(max-width:640px){ .hero{ grid-template-columns:1fr; } }
+
+    .cover-wrap{ position:relative; }
+    .cover{
+      width:100%; aspect-ratio:3/4; object-fit:cover; border-radius:16px;
+      box-shadow:0 12px 40px rgba(0,0,0,0.7);
+      border:1px solid rgba(255,255,255,0.07);
+      display:block;
+    }
+
+    .info{ display:flex; flex-direction:column; gap:14px; padding-top:4px; }
+
+    .detail-title{ font-size:clamp(20px,4vw,32px); line-height:1.2; margin:0; }
+
+    .chips{ display:flex; flex-wrap:wrap; gap:8px; }
+    .chip{
+      padding:5px 12px; border-radius:999px; font-size:11px;
+      background:#181818; border:1px solid #2a2a2a; color:#ccc;
+    }
+    .chip.type  { background:rgba(255,0,0,0.12); border-color:rgba(255,0,0,0.25); color:#ff8888; }
+    .chip.status{ background:#111; border-color:#333; color:#aaa; }
+
+    .meta-row{ display:flex; flex-wrap:wrap; gap:20px; font-size:12px; color:var(--muted); }
+    .meta-row span{ display:flex; align-items:center; gap:6px; }
+    .meta-row i{ color:rgba(255,0,0,0.6); }
+
+    /* action buttons */
+    .actions{ display:flex; gap:10px; flex-wrap:wrap; margin-top:6px; }
+    .btn-edit{
+      display:inline-flex; align-items:center; gap:8px;
+      padding:10px 20px; border-radius:12px; border:1px solid #333;
+      background:#1a1a1a; color:#fff; text-decoration:none;
+      font-family:"Bungee",Arial,sans-serif; font-size:13px; cursor:pointer;
+      transition:background .15s, border-color .15s, transform .12s;
+    }
+    .btn-edit:hover{ background:#252525; border-color:#555; transform:translateY(-1px); }
+    .btn-delete{
+      display:inline-flex; align-items:center; gap:8px;
+      padding:10px 20px; border-radius:12px; border:none;
+      background:rgba(192,57,43,0.2); color:#ff8888;
+      font-family:"Bungee",Arial,sans-serif; font-size:13px; cursor:pointer;
+      transition:background .15s, transform .12s;
+      border:1px solid rgba(192,57,43,0.35);
+    }
+    .btn-delete:hover{ background:rgba(192,57,43,0.35); transform:translateY(-1px); }
+
+    /* ── SECTIONS ── */
+    .section{ margin-bottom:32px; }
+    .section-title{
+      font-size:13px; color:var(--muted); letter-spacing:1px;
+      text-transform:uppercase; margin:0 0 14px;
+      padding-bottom:8px; border-bottom:1px solid #1c1c1c;
+    }
+
+    /* Preview embed */
+    .embed-wrap{
+      position:relative; width:100%; aspect-ratio:16/9;
+      border-radius:14px; overflow:hidden;
+      background:#0a0a0a; border:1px solid #1c1c1c;
+    }
+    .embed-wrap iframe{ position:absolute; inset:0; width:100%; height:100%; border:none; }
+
+    /* Preview link fallback */
+    .preview-link{
+      display:inline-flex; align-items:center; gap:10px;
+      padding:14px 20px; border-radius:12px; text-decoration:none;
+      background:#111; border:1px solid #222; color:#fff; font-size:13px;
+      transition:border-color .15s, box-shadow .15s;
+    }
+    .preview-link:hover{ border-color:var(--accent); box-shadow:0 0 14px var(--accent); }
+    .preview-link i{ font-size:20px; color:#ff4444; }
+
+    /* Source links */
+    .sources-grid{ display:flex; flex-direction:column; gap:10px; }
+    .source-item{
+      display:flex; align-items:center; gap:12px;
+      padding:12px 16px; border-radius:12px;
+      background:#0d0d0d; border:1px solid #1c1c1c;
+      text-decoration:none; color:#fff;
+      transition:border-color .15s, background .15s, transform .12s;
+    }
+    .source-item:hover{ background:#141414; border-color:rgba(255,0,0,0.3); transform:translateX(3px); }
+    .source-flag{ width:20px; height:14px; border-radius:3px; object-fit:cover; flex-shrink:0; }
+    .source-label{ flex:1; font-size:13px; }
+    .source-lang{ font-size:11px; color:var(--muted); }
+    .source-arrow{ color:var(--muted); font-size:12px; }
+
+    /* Loading / error states */
+    .state{ text-align:center; padding:80px 20px; color:var(--muted); }
+    .state i{ font-size:48px; opacity:.3; display:block; margin-bottom:16px; }
+  </style>
+</head>
+<body>
+  <script> if (!localStorage.getItem('loggedIn')) { window.location.replace('login.html'); } </script>
+
+  <nav id="app-nav"></nav>
+  <script src="js/nav.js" defer></script>
+
+  <div class="wrap">
+    <a href="home.html" class="back-btn"><i class="fa-solid fa-arrow-left"></i> Back</a>
+    <div id="content"><div class="state"><i class="fa-solid fa-spinner fa-spin"></i>Loading...</div></div>
+  </div>
+
+  <!-- Confirm delete modal -->
+  <div class="modal-overlay" id="confirmModal">
+    <div class="modal">
+      <h3>Remove Item?</h3>
+      <p id="confirmMsg"></p>
+      <div class="modal-actions">
+        <button class="modal-btn modal-btn--cancel" id="cancelDelete">Cancel</button>
+        <button class="modal-btn modal-btn--danger" id="confirmDelete">Delete</button>
+      </div>
+    </div>
+  </div>
+
+  <script type="module">
+    import { getWishlistItem, deleteWishlistItem } from "./js/firebase-service.js";
+    import { showToast } from "./js/toast.js";
+
+    const params = new URLSearchParams(location.search);
+    const docId  = params.get('id');
+    if (!docId) { location.replace('home.html'); }
+
+    const content     = document.getElementById('content');
+    const modal       = document.getElementById('confirmModal');
+    const confirmMsg  = document.getElementById('confirmMsg');
+
+    function langMeta(code){
+      switch((code||'').toLowerCase()){
+        case 'id': return { name:'Indonesian', flag:'assets/flags/id.png' };
+        case 'kr': return { name:'Korean',     flag:'assets/flags/kr.png' };
+        case 'my': return { name:'Malay',      flag:'assets/flags/my.png' };
+        default:   return { name:'English',    flag:'assets/flags/gb.png' };
+      }
+    }
+
+    function youtubeEmbedUrl(url){
+      // handles youtu.be/ID and youtube.com/watch?v=ID
+      const m = url.match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|embed\/))([A-Za-z0-9_-]{11})/);
+      return m ? `https://www.youtube.com/embed/${m[1]}?rel=0&modestbranding=1` : null;
+    }
+
+    function tiktokEmbedUrl(url){
+      // TikTok doesn't allow iframe embeds — return null to use link fallback
+      return null;
+    }
+
+    function renderPreview(item){
+      if (!item.preview_url) return '';
+      const src = item.preview_source || '';
+      let embedUrl = null;
+      if (src === 'youtube' || (!src && /youtu/i.test(item.preview_url))) {
+        embedUrl = youtubeEmbedUrl(item.preview_url);
+      }
+      if (embedUrl) {
+        return `
+          <div class="section">
+            <p class="section-title"><i class="fa-solid fa-play"></i> Preview / Trailer</p>
+            <div class="embed-wrap">
+              <iframe src="${embedUrl}" allowfullscreen allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"></iframe>
+            </div>
+          </div>`;
+      }
+      // Fallback: open link
+      const icon = src === 'tiktok' ? 'fa-brands fa-tiktok' : 'fa-brands fa-youtube';
+      const label = src === 'tiktok' ? 'Watch on TikTok' : 'Watch Preview';
+      return `
+        <div class="section">
+          <p class="section-title"><i class="fa-solid fa-play"></i> Preview / Trailer</p>
+          <a class="preview-link" href="${item.preview_url}" target="_blank" rel="noopener">
+            <i class="${icon}"></i> ${label}
+          </a>
+        </div>`;
+    }
+
+    function renderSources(item){
+      const list = Array.isArray(item.sources) ? item.sources.filter(s => s.url) : [];
+      if (!list.length && !item.site_url) return '';
+      const all = [...list];
+      if (item.site_url) all.unshift({ url: item.site_url, label: 'Open Site', lang: 'eng' });
+      return `
+        <div class="section">
+          <p class="section-title"><i class="fa-solid fa-link"></i> Where to Watch / Read</p>
+          <div class="sources-grid">
+            ${all.map(s => {
+              const meta = langMeta(s.lang);
+              let label = s.label && s.label.trim() ? s.label : '';
+              if (!label) { try { label = new URL(s.url).hostname.replace(/^www\./, ''); } catch(e){ label = s.url; } }
+              return `
+                <a class="source-item" href="${s.url}" target="_blank" rel="noopener">
+                  <img class="source-flag" src="${meta.flag}" alt="${meta.name}">
+                  <span class="source-label">${label}</span>
+                  <span class="source-lang">${meta.name}</span>
+                  <i class="fa-solid fa-arrow-up-right-from-square source-arrow"></i>
+                </a>`;
+            }).join('')}
+          </div>
+        </div>`;
+    }
+
+    let item;
+    try {
+      item = await getWishlistItem(docId);
+      document.title = `${item.title || 'Detail'} — My E-Library`;
+    } catch(e) {
+      content.innerHTML = `<div class="state"><i class="fa-solid fa-circle-exclamation"></i>Item not found. <a href="home.html" style="color:#ff4444">Go back</a></div>`;
+      throw e;
+    }
+
+    const imgSrc  = item.cover_path || item.cover_url || 'https://via.placeholder.com/400x533?text=No+Image';
+    const status  = (item.status || '').charAt(0).toUpperCase() + (item.status || '').slice(1);
+    const typeStr = (item.type   || '').toUpperCase();
+    const last    = item.last_chapter ? `Ch. ${item.last_chapter}` : '';
+
+    content.innerHTML = `
+      <div class="hero">
+        <div class="cover-wrap">
+          <img class="cover" src="${imgSrc}" alt="${item.title || ''}" onerror="this.src='https://via.placeholder.com/400x533?text=No+Image'">
+        </div>
+        <div class="info">
+          <h1 class="detail-title">${item.title || ''}</h1>
+
+          <div class="chips">
+            ${typeStr   ? `<span class="chip type">${typeStr}</span>`     : ''}
+            ${item.genre? `<span class="chip">${item.genre}</span>`        : ''}
+            ${status    ? `<span class="chip status">${status}</span>`     : ''}
+            ${last      ? `<span class="chip"><i class="fa-solid fa-bookmark" style="font-size:10px"></i> ${last}</span>` : ''}
+          </div>
+
+          <div class="meta-row">
+            ${item.type          ? `<span><i class="fa-solid fa-layer-group"></i>${typeStr}</span>`          : ''}
+            ${item.genre         ? `<span><i class="fa-solid fa-tag"></i>${item.genre}</span>`               : ''}
+            ${item.last_chapter  ? `<span><i class="fa-solid fa-bookmark"></i>Last: Ch. ${item.last_chapter}</span>` : ''}
+          </div>
+
+          <div class="actions">
+            <a class="btn-edit" href="edit.html?id=${item.id}">
+              <i class="fa-solid fa-pen-to-square"></i> Edit
+            </a>
+            <button class="btn-delete" id="deleteBtn">
+              <i class="fa-solid fa-trash"></i> Delete
+            </button>
+          </div>
+        </div>
+      </div>
+
+      ${renderPreview(item)}
+      ${renderSources(item)}
+    `;
+
+    // Delete
+    document.getElementById('deleteBtn').addEventListener('click', () => {
+      confirmMsg.textContent = `Remove "${item.title}"?`;
+      modal.classList.add('active');
+    });
+
+    document.getElementById('cancelDelete').addEventListener('click', () => {
+      modal.classList.remove('active');
+    });
+
+    document.getElementById('confirmDelete').addEventListener('click', async () => {
+      modal.classList.remove('active');
+      try {
+        await deleteWishlistItem(docId);
+        showToast('Item deleted.', 'success');
+        setTimeout(() => location.href = 'home.html', 700);
+      } catch(err) {
+        showToast(err.message || 'Delete failed.', 'error');
+      }
+    });
+  </script>
+</body>
+</html>

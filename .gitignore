@@ -1,0 +1,7 @@
+# Claude AI files
+.claude/
+
+# Other common ignores
+.env
+node_modules/
+uploads/

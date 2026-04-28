@@ -1,0 +1,605 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Platforms</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link href="css/site.css" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Bungee&display=swap" rel="stylesheet" />
+  <script src="https://kit.fontawesome.com/3c6e6d7c17.js" crossorigin="anonymous"></script>
+  <style>
+    :root{ --bg:#000; --accent:#ff000086; --text:#fff; }
+    body{ margin:0; background:var(--bg); color:var(--text); font-family:"Bungee",Arial,sans-serif; min-height:100vh; }
+
+    /* ── Toolbar ───────────────────────────────────────── */
+    .toolbar{
+      display:flex; align-items:center; flex-wrap:wrap; gap:10px;
+      padding:14px 22px; background:#050505;
+      border-bottom:1px solid rgba(255,0,0,0.12);
+      position:sticky; top:60px; z-index:60;
+    }
+    .toolbar-title{ font-size:18px; flex:1; min-width:160px; }
+    .sort-select{
+      background:#121212; color:#fff; border:1px solid #333; border-radius:10px;
+      padding:8px 12px; font-family:"Bungee",Arial,sans-serif; font-size:11px;
+      outline:none; cursor:pointer;
+    }
+    .sort-select:focus{ border-color:rgba(255,0,0,0.4); }
+    .check-btn{
+      background:#121212; color:#bbb; border:1px solid #333; border-radius:10px;
+      padding:8px 14px; font-family:"Bungee",Arial,sans-serif; font-size:11px;
+      cursor:pointer; transition:all .15s; white-space:nowrap;
+    }
+    .check-btn:hover{ color:#fff; border-color:#555; }
+
+    /* ── Language tabs ─────────────────────────────────── */
+    .lang-tabs{
+      display:flex; gap:4px; padding:10px 22px;
+      background:#080808; border-bottom:1px solid #1a1a1a;
+      overflow-x:auto; position:sticky; top:108px; z-index:55;
+    }
+    .lang-tab{
+      display:inline-flex; align-items:center; gap:6px;
+      padding:6px 14px; border-radius:9px; border:1px solid transparent;
+      font-family:"Bungee",Arial,sans-serif; font-size:11px; color:#555;
+      background:transparent; cursor:pointer; white-space:nowrap; transition:all .15s;
+    }
+    .lang-tab:hover{ color:#ccc; background:rgba(255,255,255,0.05); }
+    .lang-tab.active{
+      color:#fff; background:rgba(255,0,0,0.15);
+      border-color:rgba(255,0,0,0.35);
+    }
+    .flag-img{ width:16px; height:12px; border-radius:2px; object-fit:cover; }
+
+    /* ── Main wrap ─────────────────────────────────────── */
+    .wrap{ padding:22px; max-width:1200px; margin:0 auto; }
+
+    /* ── Section headers ───────────────────────────────── */
+    .p-section{ margin-bottom:36px; }
+    .p-section[hidden]{ display:none; }
+    .sec-title{
+      font-size:14px; color:#bbb; margin:0 0 14px;
+      display:flex; align-items:center; gap:8px;
+      padding-bottom:10px; border-bottom:1px solid #1e1e1e;
+    }
+    .sec-title i{ font-size:13px; }
+    .sec-count{
+      background:#1e1e1e; border:1px solid #2a2a2a;
+      border-radius:999px; font-size:10px; color:#666;
+      padding:2px 8px; margin-left:4px;
+    }
+
+    /* ── Platform grid ─────────────────────────────────── */
+    .p-grid{
+      display:grid; gap:14px;
+      grid-template-columns:repeat(auto-fill,minmax(160px,1fr));
+    }
+
+    /* ── Platform card ─────────────────────────────────── */
+    .p-card{
+      background:#111; border:1px solid #1e1e1e; border-radius:16px;
+      padding:16px 14px 12px; text-align:center; position:relative;
+      transition:transform .18s, box-shadow .2s, border-color .2s;
+      display:flex; flex-direction:column; align-items:center; gap:6px;
+    }
+    .p-card:hover{
+      transform:translateY(-3px);
+      box-shadow:0 0 22px rgba(255,0,0,0.2), 0 0 0 1px rgba(255,0,0,0.15);
+      border-color:rgba(255,0,0,0.2);
+    }
+    .p-card:hover .p-actions{ opacity:1; pointer-events:auto; }
+
+    /* Status dot */
+    .p-status{
+      position:absolute; top:10px; left:10px;
+      width:8px; height:8px; border-radius:50%;
+      background:#333; border:1px solid #444; transition:background .3s;
+    }
+    .p-status.online{ background:#4caf50; border-color:#388e3c; box-shadow:0 0 6px #4caf5088; }
+    .p-status.offline{ background:#f44336; border-color:#c62828; box-shadow:0 0 6px #f4433688; }
+    .p-status.checking{ animation:pulse-dot 1s infinite; }
+    @keyframes pulse-dot{ 0%,100%{opacity:1} 50%{opacity:.3} }
+
+    /* Library count badge */
+    .p-lib{
+      position:absolute; top:8px; right:8px;
+      background:rgba(255,0,0,0.18); border:1px solid rgba(255,0,0,0.35);
+      color:#ff9999; border-radius:999px; font-size:9px;
+      padding:2px 7px; line-height:1.4; display:none;
+    }
+    .p-lib.has-count{ display:block; }
+
+    /* Icon */
+    .p-icon{
+      width:72px; height:72px; border-radius:50%;
+      object-fit:cover; background:#0f0f0f; display:block;
+      border:2px solid rgba(255,0,0,0.2); margin:4px auto 6px;
+    }
+
+    /* Link area */
+    .p-link{
+      text-decoration:none; color:inherit; display:block; width:100%;
+      cursor:pointer;
+    }
+    .p-name{ font-size:13px; line-height:1.3; margin-bottom:4px; }
+    .p-notes{ font-size:10px; color:#666; margin-top:2px; line-height:1.4; }
+
+    /* Tags */
+    .p-tags{ display:flex; flex-wrap:wrap; gap:5px; justify-content:center; margin-top:4px; }
+    .p-tag{
+      padding:3px 9px; border-radius:999px; font-size:9px;
+      border:1px solid; white-space:nowrap;
+    }
+
+    /* Meta row (visits + last visited) */
+    .p-meta{ display:flex; gap:8px; align-items:center; justify-content:center; margin-top:4px; flex-wrap:wrap; }
+    .p-meta-item{ font-size:10px; color:#555; display:flex; align-items:center; gap:4px; }
+    .p-meta-item i{ font-size:9px; }
+
+    /* Actions (hover) */
+    .p-actions{
+      display:flex; gap:6px; justify-content:center;
+      margin-top:6px; opacity:0; pointer-events:none;
+      transition:opacity .18s;
+    }
+    .p-btn{
+      width:30px; height:30px; border-radius:8px; border:1px solid #333;
+      background:#1a1a1a; color:#bbb; cursor:pointer; font-size:12px;
+      display:flex; align-items:center; justify-content:center;
+      transition:all .15s; flex-shrink:0;
+    }
+    .p-btn:hover{ color:#fff; border-color:#555; transform:scale(1.08); }
+    .p-btn-del:hover{ background:rgba(192,57,43,.7); border-color:#c0392b; color:#fff; }
+    .p-btn-edit:hover{ background:rgba(33,150,243,.2); border-color:#2196f3; color:#64b5f6; }
+    .p-btn-copy:hover{ background:rgba(76,175,80,.2); border-color:#4caf50; color:#81c784; }
+
+    /* Empty state */
+    .p-empty{
+      grid-column:1/-1; text-align:center; padding:30px; color:#444; font-size:12px;
+    }
+
+    /* FAB */
+    .fab{
+      position:fixed; right:22px; bottom:22px; width:56px; height:56px;
+      border-radius:50%; background:var(--accent); color:#fff;
+      display:flex; align-items:center; justify-content:center;
+      font-size:28px; font-weight:900; cursor:pointer; border:none;
+      box-shadow:0 10px 20px rgba(255,0,0,0.25);
+      transition:box-shadow .15s, transform .15s;
+    }
+    .fab:hover{ box-shadow:0 0 20px var(--accent); transform:translateY(-1px); }
+
+    /* Confirm modal */
+    .modal-overlay{
+      position:fixed; inset:0; background:rgba(0,0,0,.78); z-index:1000;
+      display:flex; align-items:center; justify-content:center;
+      opacity:0; transition:opacity .2s; pointer-events:none;
+    }
+    .modal-overlay.active{ opacity:1; pointer-events:auto; }
+    .modal{
+      background:#111; border:1px solid #333; border-radius:16px;
+      padding:28px 32px; max-width:400px; width:90%; text-align:center;
+      transform:scale(.9); transition:transform .2s;
+    }
+    .modal-overlay.active .modal{ transform:scale(1); }
+    .modal h3{ margin:0 0 10px; font-size:17px; }
+    .modal p{ color:#bbb; font-size:12px; margin:0 0 20px; }
+    .modal-actions{ display:flex; gap:10px; justify-content:center; }
+    .modal-btn{
+      padding:10px 22px; border-radius:10px; border:none; cursor:pointer;
+      font-family:"Bungee",Arial,sans-serif; font-size:12px;
+    }
+    .modal-btn--cancel{ background:#222; color:#fff; border:1px solid #333; }
+    .modal-btn--danger{ background:#c0392b; color:#fff; }
+
+    /* Loading skeleton */
+    .skel-grid{
+      display:grid; gap:14px;
+      grid-template-columns:repeat(auto-fill,minmax(160px,1fr));
+      margin-bottom:36px;
+    }
+    .skel-card{
+      background:#111; border:1px solid #1e1e1e; border-radius:16px;
+      padding:16px 14px; display:flex; flex-direction:column; align-items:center; gap:10px;
+    }
+    .skel-circle{
+      width:72px; height:72px; border-radius:50%;
+      background:linear-gradient(90deg,#1a1a1a 25%,#252525 50%,#1a1a1a 75%);
+      background-size:200% 100%; animation:shimmer 1.4s infinite;
+    }
+    .skel-line{
+      height:12px; border-radius:6px; width:70%;
+      background:linear-gradient(90deg,#1a1a1a 25%,#252525 50%,#1a1a1a 75%);
+      background-size:200% 100%; animation:shimmer 1.4s infinite;
+    }
+    .skel-line.short{ width:45%; }
+    @keyframes shimmer{ 0%{background-position:200% 0} 100%{background-position:-200% 0} }
+  </style>
+</head>
+<body>
+  <script> if (!localStorage.getItem('loggedIn')) { window.location.replace('login.html'); } </script>
+
+  <nav id="app-nav"></nav>
+  <script src="js/nav.js" defer></script>
+
+  <!-- Toolbar -->
+  <div class="toolbar">
+    <span class="toolbar-title" id="pageTitle">Platforms</span>
+    <select class="sort-select" id="sortSelect">
+      <option value="date">Date Added</option>
+      <option value="name">Name A–Z</option>
+      <option value="visits">Most Visited</option>
+      <option value="last">Last Visited</option>
+    </select>
+    <button class="check-btn" id="checkLinksBtn"><i class="fa-solid fa-wifi"></i> Check Links</button>
+  </div>
+
+  <!-- Language tabs -->
+  <div class="lang-tabs">
+    <button class="lang-tab active" data-lang=""><i class="fa-solid fa-globe"></i> All</button>
+    <button class="lang-tab" data-lang="en">
+      <img class="flag-img" src="assets/flags/gb.png" alt="EN"> English
+    </button>
+    <button class="lang-tab" data-lang="id">
+      <img class="flag-img" src="assets/flags/id.png" alt="ID"> Indonesian
+    </button>
+    <button class="lang-tab" data-lang="kr">
+      <img class="flag-img" src="assets/flags/kr.png" alt="KR"> Korean
+    </button>
+    <button class="lang-tab" data-lang="my">
+      <img class="flag-img" src="assets/flags/my.png" alt="MY"> Malay
+    </button>
+    <button class="lang-tab" data-lang="all">
+      <i class="fa-solid fa-layer-group"></i> Multi-lang
+    </button>
+  </div>
+
+  <!-- Content -->
+  <div class="wrap">
+    <!-- Skeleton loaders -->
+    <div id="skeletons">
+      <div class="skel-grid">
+        <div class="skel-card"><div class="skel-circle"></div><div class="skel-line"></div><div class="skel-line short"></div></div>
+        <div class="skel-card"><div class="skel-circle"></div><div class="skel-line"></div><div class="skel-line short"></div></div>
+        <div class="skel-card"><div class="skel-circle"></div><div class="skel-line"></div><div class="skel-line short"></div></div>
+        <div class="skel-card"><div class="skel-circle"></div><div class="skel-line"></div><div class="skel-line short"></div></div>
+        <div class="skel-card"><div class="skel-circle"></div><div class="skel-line"></div><div class="skel-line short"></div></div>
+        <div class="skel-card"><div class="skel-circle"></div><div class="skel-line"></div><div class="skel-line short"></div></div>
+      </div>
+    </div>
+
+    <!-- Sections -->
+    <section class="p-section" id="sec-free" hidden>
+      <h2 class="sec-title">
+        <i class="fa-solid fa-star" style="color:#4caf50"></i> Free
+        <span class="sec-count" id="cnt-free"></span>
+      </h2>
+      <div class="p-grid" id="grid-free"></div>
+    </section>
+
+    <section class="p-section" id="sec-premium" hidden>
+      <h2 class="sec-title">
+        <i class="fa-solid fa-crown" style="color:#ffc107"></i> Premium
+        <span class="sec-count" id="cnt-premium"></span>
+      </h2>
+      <div class="p-grid" id="grid-premium"></div>
+    </section>
+
+    <section class="p-section" id="sec-other" hidden>
+      <h2 class="sec-title">
+        <i class="fa-solid fa-circle-nodes" style="color:#888"></i> Other
+        <span class="sec-count" id="cnt-other"></span>
+      </h2>
+      <div class="p-grid" id="grid-other"></div>
+    </section>
+  </div>
+
+  <button class="fab" id="fab" title="Add Platform">+</button>
+
+  <!-- Confirm modal -->
+  <div class="modal-overlay" id="confirmModal">
+    <div class="modal">
+      <h3>Remove Platform?</h3>
+      <p id="confirmMsg">This will also delete the icon from storage.</p>
+      <div class="modal-actions">
+        <button class="modal-btn modal-btn--cancel" id="cancelDelete">Cancel</button>
+        <button class="modal-btn modal-btn--danger" id="confirmDelete">Delete</button>
+      </div>
+    </div>
+  </div>
+
+  <script type="module">
+    import { getPlatforms, deletePlatform, recordPlatformVisit } from "./js/firebase-service.js";
+    import { getWishlist } from "./js/firebase-service.js";
+    import { showToast } from "./js/toast.js";
+
+    /* ── Config ──────────────────────────────────────── */
+    const params = new URLSearchParams(location.search);
+    const type   = (params.get('type') === 'webtoon') ? 'webtoon' : 'streaming';
+    document.getElementById('pageTitle').textContent =
+      type === 'streaming' ? 'Streaming Platforms' : 'Reading Platforms';
+    document.getElementById('fab').onclick = () => {
+      location.href = `add_platform.html?type=${type}`;
+    };
+
+    /* ── Tag colors ──────────────────────────────────── */
+    const TAG_STYLE = {
+      'Free':     'background:rgba(76,175,80,0.15);border-color:#4caf50;color:#81c784',
+      'Premium':  'background:rgba(255,193,7,0.15);border-color:#ffc107;color:#ffd54f',
+      'Sub':      'background:rgba(33,150,243,0.15);border-color:#2196f3;color:#64b5f6',
+      'Dub':      'background:rgba(156,39,176,0.15);border-color:#9c27b0;color:#ce93d8',
+      'Official': 'background:rgba(0,188,212,0.15);border-color:#00bcd4;color:#4dd0e1',
+      'Fan-TL':   'background:rgba(255,152,0,0.15);border-color:#ff9800;color:#ffb74d',
+    };
+
+    /* ── Helpers ─────────────────────────────────────── */
+    function platformDomain(url) {
+      try { return new URL(url).hostname.replace(/^www\./, ''); }
+      catch { return ''; }
+    }
+
+    function relTime(ts) {
+      if (!ts) return null;
+      const ms = Date.now() - (ts.toMillis ? ts.toMillis() : Number(ts));
+      if (ms < 60000)    return 'just now';
+      if (ms < 3600000)  return `${Math.floor(ms / 60000)}m ago`;
+      if (ms < 86400000) return `${Math.floor(ms / 3600000)}h ago`;
+      return `${Math.floor(ms / 86400000)}d ago`;
+    }
+
+    function countLib(wishlist, platformUrl) {
+      const domain = platformDomain(platformUrl);
+      if (!domain) return 0;
+      return wishlist.filter(item =>
+        (item.sources || []).some(s => {
+          try { return new URL(s.url || '').hostname.replace(/^www\./, '') === domain; }
+          catch { return false; }
+        })
+      ).length;
+    }
+
+    async function checkLink(url) {
+      const ctrl  = new AbortController();
+      const timer = setTimeout(() => ctrl.abort(), 6000);
+      try {
+        await fetch(url, { mode: 'no-cors', signal: ctrl.signal });
+        clearTimeout(timer);
+        return true;
+      } catch {
+        clearTimeout(timer);
+        return false;
+      }
+    }
+
+    /* ── State ───────────────────────────────────────── */
+    let allPlatforms = [];
+    let wishlist     = [];
+    let langFilter   = '';
+    let sortOrder    = 'date';
+
+    /* ── Load data ───────────────────────────────────── */
+    const [platforms, wl] = await Promise.all([
+      getPlatforms(type),
+      getWishlist().catch(() => [])
+    ]);
+    allPlatforms = platforms;
+    wishlist     = wl;
+
+    document.getElementById('skeletons').remove();
+
+    /* ── Build a single card element ─────────────────── */
+    function buildCard(p) {
+      const libCount = countLib(wishlist, p.url);
+      const tags     = p.tags || [];
+      const visited  = relTime(p.last_visited);
+      const visits   = p.visit_count || 0;
+
+      const tagsHtml = tags.map(t =>
+        `<span class="p-tag" style="${TAG_STYLE[t] || 'background:#1a1a1a;border-color:#333;color:#888'}">${t}</span>`
+      ).join('');
+
+      const metaHtml = `
+        <span class="p-meta-item"><i class="fa-solid fa-eye"></i> ${visits}</span>
+        ${visited ? `<span class="p-meta-item"><i class="fa-regular fa-clock"></i> ${visited}</span>` : ''}
+      `;
+
+      const card = document.createElement('div');
+      card.className = 'p-card';
+      card.dataset.id = p.id;
+      card.innerHTML = `
+        <div class="p-status checking" id="dot-${p.id}" title="Checking..."></div>
+        <div class="p-lib ${libCount > 0 ? 'has-count' : ''}" title="${libCount} item(s) from your library">
+          <i class="fa-solid fa-book-open"></i> ${libCount}
+        </div>
+        <img class="p-icon"
+          src="${p.icon_path || ''}"
+          alt="${p.name || ''}"
+          onerror="this.src='https://via.placeholder.com/72?text=?'">
+        <div class="p-name">${p.name || ''}</div>
+        ${p.notes ? `<div class="p-notes">${p.notes}</div>` : ''}
+        <div class="p-tags">${tagsHtml}</div>
+        <div class="p-meta">${metaHtml}</div>
+        <div class="p-actions">
+          <button class="p-btn p-btn-edit"  data-action="edit"  data-id="${p.id}" title="Edit"><i class="fa-solid fa-pen"></i></button>
+          <button class="p-btn p-btn-copy"  data-action="copy"  data-url="${p.url}" title="Copy URL"><i class="fa-solid fa-copy"></i></button>
+          <button class="p-btn p-btn-del"   data-action="del"   data-id="${p.id}" data-name="${(p.name||'').replace(/"/g,'&quot;')}" title="Delete"><i class="fa-solid fa-trash"></i></button>
+        </div>
+      `;
+
+      // Navigate on icon/name click (not action buttons) + record visit
+      card.addEventListener('click', async (e) => {
+        if (e.target.closest('.p-actions')) return;
+        await recordPlatformVisit(p.id).catch(()=>{});
+        window.open(p.url, '_blank', 'noopener');
+      });
+      card.style.cursor = 'pointer';
+
+      return card;
+    }
+
+    /* ── Render ──────────────────────────────────────── */
+    function sortPlatforms(list) {
+      return [...list].sort((a, b) => {
+        if (sortOrder === 'name')   return (a.name||'').localeCompare(b.name||'');
+        if (sortOrder === 'visits') return (b.visit_count||0) - (a.visit_count||0);
+        if (sortOrder === 'last') {
+          const at = a.last_visited ? (a.last_visited.toMillis ? a.last_visited.toMillis() : 0) : 0;
+          const bt = b.last_visited ? (b.last_visited.toMillis ? b.last_visited.toMillis() : 0) : 0;
+          return bt - at;
+        }
+        // date: use created_at, newest first (default Firestore order)
+        const at = a.created_at ? (a.created_at.toMillis ? a.created_at.toMillis() : 0) : 0;
+        const bt = b.created_at ? (b.created_at.toMillis ? b.created_at.toMillis() : 0) : 0;
+        return bt - at;
+      });
+    }
+
+    function render() {
+      const gFree    = document.getElementById('grid-free');
+      const gPremium = document.getElementById('grid-premium');
+      const gOther   = document.getElementById('grid-other');
+      gFree.innerHTML = gPremium.innerHTML = gOther.innerHTML = '';
+
+      let filtered = langFilter
+        ? allPlatforms.filter(p => (p.language || 'en') === langFilter)
+        : allPlatforms;
+
+      const sorted = sortPlatforms(filtered);
+
+      const buckets = { free: [], premium: [], other: [] };
+      sorted.forEach(p => {
+        const tags = p.tags || [];
+        if (tags.includes('Free'))         buckets.free.push(p);
+        else if (tags.includes('Premium')) buckets.premium.push(p);
+        else                               buckets.other.push(p);
+      });
+
+      function fill(bucket, grid, section, cntEl) {
+        const sec = document.getElementById(section);
+        const cnt = document.getElementById(cntEl);
+        if (bucket.length === 0) { sec.hidden = true; return; }
+        sec.hidden = false;
+        cnt.textContent = bucket.length;
+        bucket.forEach(p => grid.appendChild(buildCard(p)));
+      }
+
+      fill(buckets.free,    gFree,    'sec-free',    'cnt-free');
+      fill(buckets.premium, gPremium, 'sec-premium', 'cnt-premium');
+      fill(buckets.other,   gOther,   'sec-other',   'cnt-other');
+
+      // Show empty state if nothing visible
+      const allEmpty = buckets.free.length === 0 && buckets.premium.length === 0 && buckets.other.length === 0;
+      if (allEmpty) {
+        document.getElementById('sec-other').hidden = false;
+        gOther.innerHTML = `<div class="p-empty"><i class="fa-solid fa-satellite-dish" style="font-size:32px;opacity:.25;display:block;margin-bottom:10px"></i>No platforms yet. Hit + to add one.</div>`;
+      }
+    }
+
+    render();
+
+    /* ── Link checker ────────────────────────────────── */
+    async function runLinkCheck() {
+      const btn = document.getElementById('checkLinksBtn');
+      btn.disabled = true;
+      btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Checking...';
+
+      const checks = allPlatforms.map(async p => {
+        const dot = document.getElementById(`dot-${p.id}`);
+        if (dot) { dot.className = 'p-status checking'; dot.title = 'Checking...'; }
+        const ok = await checkLink(p.url);
+        const dot2 = document.getElementById(`dot-${p.id}`);
+        if (dot2) {
+          dot2.className = `p-status ${ok ? 'online' : 'offline'}`;
+          dot2.title = ok ? 'Online' : 'Unreachable';
+        }
+      });
+
+      await Promise.allSettled(checks);
+      btn.disabled = false;
+      btn.innerHTML = '<i class="fa-solid fa-wifi"></i> Check Links';
+      showToast('Link check complete.', 'success');
+    }
+
+    document.getElementById('checkLinksBtn').addEventListener('click', runLinkCheck);
+
+    /* ── Language tabs ───────────────────────────────── */
+    document.querySelectorAll('.lang-tab').forEach(tab => {
+      tab.addEventListener('click', () => {
+        document.querySelectorAll('.lang-tab').forEach(t => t.classList.remove('active'));
+        tab.classList.add('active');
+        langFilter = tab.dataset.lang;
+        render();
+      });
+    });
+
+    /* ── Sort ────────────────────────────────────────── */
+    document.getElementById('sortSelect').addEventListener('change', e => {
+      sortOrder = e.target.value;
+      render();
+    });
+
+    /* ── Action delegation ───────────────────────────── */
+    let pendingDeleteId = null;
+    let pendingCard     = null;
+    const modal      = document.getElementById('confirmModal');
+    const confirmMsg = document.getElementById('confirmMsg');
+
+    document.addEventListener('click', async (e) => {
+      const btn = e.target.closest('[data-action]');
+      if (!btn) return;
+      e.stopPropagation();
+
+      const action = btn.dataset.action;
+
+      if (action === 'edit') {
+        location.href = `edit_platform.html?id=${btn.dataset.id}&type=${type}`;
+      }
+
+      if (action === 'copy') {
+        try {
+          await navigator.clipboard.writeText(btn.dataset.url);
+          showToast('URL copied!', 'success');
+        } catch {
+          showToast('Copy failed — try manually.', 'error');
+        }
+      }
+
+      if (action === 'del') {
+        pendingDeleteId = btn.dataset.id;
+        pendingCard     = btn.closest('.p-card');
+        confirmMsg.textContent = `Remove "${btn.dataset.name}"? This also deletes its icon.`;
+        modal.classList.add('active');
+      }
+    });
+
+    document.getElementById('cancelDelete').addEventListener('click', () => {
+      modal.classList.remove('active');
+      pendingDeleteId = pendingCard = null;
+    });
+
+    document.getElementById('confirmDelete').addEventListener('click', async () => {
+      if (!pendingDeleteId) return;
+      modal.classList.remove('active');
+      try {
+        await deletePlatform(pendingDeleteId);
+        if (pendingCard) pendingCard.remove();
+        allPlatforms = allPlatforms.filter(p => p.id !== pendingDeleteId);
+        showToast('Platform deleted.', 'success');
+        // Re-check if any section is now empty
+        render();
+      } catch (err) {
+        showToast(err.message || 'Delete failed.', 'error');
+      }
+      pendingDeleteId = pendingCard = null;
+    });
+
+    // Close modal on overlay click
+    modal.addEventListener('click', (e) => {
+      if (e.target === modal) {
+        modal.classList.remove('active');
+        pendingDeleteId = pendingCard = null;
+      }
+    });
+  </script>
+</body>
+</html>
