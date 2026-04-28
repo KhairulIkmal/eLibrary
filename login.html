@@ -26,15 +26,15 @@
           <img src="main.jpg" alt="E-Library Logo" />
         </div>
         <h1 class="login-title">My E-Library</h1>
-        <p class="login-sub">Welcome back, Feronix</p>
+        <p class="login-sub" id="formSubtitle">Welcome back</p>
       </div>
 
       <!-- Form -->
       <form id="loginForm" autocomplete="off">
 
         <div class="field-group">
-          <label for="username"><i class="fa-solid fa-user"></i> Username</label>
-          <input type="text" id="username" placeholder="Enter your username" required autocomplete="username" />
+          <label for="email"><i class="fa-solid fa-envelope"></i> Email</label>
+          <input type="email" id="email" placeholder="Enter your email" required autocomplete="email" />
         </div>
 
         <div class="field-group">
@@ -47,58 +47,148 @@
           </div>
         </div>
 
+        <!-- Confirm password — only shown in register mode -->
+        <div class="field-group" id="confirmGroup" style="display:none;">
+          <label for="confirmPassword"><i class="fa-solid fa-lock"></i> Confirm Password</label>
+          <div class="pw-wrap">
+            <input type="password" id="confirmPassword" placeholder="Re-enter your password" autocomplete="new-password" />
+          </div>
+        </div>
+
         <div id="errMsg" class="err-msg"></div>
 
         <button type="submit" id="loginBtn" class="login-btn">
           <span id="btnText">Login</span>
-          <i class="fa-solid fa-arrow-right-to-bracket"></i>
+          <i class="fa-solid fa-arrow-right-to-bracket" id="btnIcon"></i>
         </button>
+
+        <p style="text-align:center; margin-top:1rem; font-size:0.85rem; color:var(--text-muted, #aaa);">
+          <span id="toggleMsg">Don't have an account?</span>
+          <a href="#" id="toggleLink" style="color:var(--accent, #ff6b6b); text-decoration:none; font-weight:600;">
+            Create one
+          </a>
+        </p>
 
       </form>
     </div>
   </div>
 
-  <script>
-    const form     = document.getElementById('loginForm');
-    const card     = document.getElementById('loginCard');
-    const loginBtn = document.getElementById('loginBtn');
-    const btnText  = document.getElementById('btnText');
-    const pwInput  = document.getElementById('password');
-    const pwToggle = document.getElementById('pwToggle');
-    const errMsg   = document.getElementById('errMsg');
+  <script type="module">
+    import { initializeApp, getApps, getApp }
+      from "https://www.gstatic.com/firebasejs/11.6.0/firebase-app.js";
+    import { getAuth, signInWithEmailAndPassword,
+             createUserWithEmailAndPassword, onAuthStateChanged }
+      from "https://www.gstatic.com/firebasejs/11.6.0/firebase-auth.js";
+    import { firebaseConfig } from "./js/firebase-config.js";
 
+    const app  = getApps().length ? getApp() : initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+
+    // Redirect if already logged in
+    onAuthStateChanged(auth, (user) => {
+      if (user) {
+        sessionStorage.setItem('userEmail', user.email);
+        window.location.replace('home.html');
+      }
+    });
+
+    /* ── DOM refs ── */
+    const form          = document.getElementById('loginForm');
+    const card          = document.getElementById('loginCard');
+    const loginBtn      = document.getElementById('loginBtn');
+    const btnText       = document.getElementById('btnText');
+    const btnIcon       = document.getElementById('btnIcon');
+    const emailInput    = document.getElementById('email');
+    const pwInput       = document.getElementById('password');
+    const pwToggle      = document.getElementById('pwToggle');
+    const confirmInput  = document.getElementById('confirmPassword');
+    const confirmGroup  = document.getElementById('confirmGroup');
+    const errMsg        = document.getElementById('errMsg');
+    const formSubtitle  = document.getElementById('formSubtitle');
+    const toggleLink    = document.getElementById('toggleLink');
+    const toggleMsg     = document.getElementById('toggleMsg');
+
+    let isRegisterMode = false;
+
+    /* ── Toggle login / register ── */
+    toggleLink.addEventListener('click', (e) => {
+      e.preventDefault();
+      isRegisterMode = !isRegisterMode;
+      errMsg.textContent = '';
+
+      if (isRegisterMode) {
+        formSubtitle.textContent      = 'Create your account';
+        btnText.textContent           = 'Create Account';
+        btnIcon.className             = 'fa-solid fa-user-plus';
+        confirmGroup.style.display    = '';
+        confirmInput.required         = true;
+        toggleMsg.textContent         = 'Already have an account?';
+        toggleLink.textContent        = 'Login';
+      } else {
+        formSubtitle.textContent      = 'Welcome back';
+        btnText.textContent           = 'Login';
+        btnIcon.className             = 'fa-solid fa-arrow-right-to-bracket';
+        confirmGroup.style.display    = 'none';
+        confirmInput.required         = false;
+        toggleMsg.textContent         = "Don't have an account?";
+        toggleLink.textContent        = 'Create one';
+      }
+    });
+
+    /* ── Password show/hide ── */
     pwToggle.addEventListener('click', () => {
       const show = pwInput.type === 'password';
       pwInput.type = show ? 'text' : 'password';
       pwToggle.querySelector('i').className = show ? 'fa-solid fa-eye-slash' : 'fa-solid fa-eye';
     });
 
-    form.addEventListener('submit', function(e) {
+    /* ── Form submit ── */
+    form.addEventListener('submit', async (e) => {
       e.preventDefault();
-      const user = document.getElementById('username').value.trim();
-      const pass = pwInput.value.trim();
+      const email = emailInput.value.trim();
+      const pass  = pwInput.value;
 
-      loginBtn.disabled = true;
-      btnText.textContent = 'Logging in...';
-      errMsg.textContent = '';
+      if (isRegisterMode && pass !== confirmInput.value) {
+        errMsg.textContent = 'Passwords do not match.';
+        return;
+      }
 
-      setTimeout(() => {
-        if (user === 'Feronix' && pass === 'pass123') {
-          localStorage.setItem('loggedIn', '1');
-          localStorage.setItem('username', user);
-          loginBtn.classList.add('success');
-          btnText.textContent = 'Welcome!';
-          setTimeout(() => { window.location.href = 'home.html'; }, 600);
+      loginBtn.disabled   = true;
+      btnText.textContent = isRegisterMode ? 'Creating...' : 'Logging in...';
+      errMsg.textContent  = '';
+
+      try {
+        if (isRegisterMode) {
+          await createUserWithEmailAndPassword(auth, email, pass);
         } else {
-          card.classList.remove('shake');
-          void card.offsetWidth;
-          card.classList.add('shake');
-          errMsg.textContent = 'Invalid username or password.';
-          loginBtn.disabled = false;
-          btnText.textContent = 'Login';
+          await signInWithEmailAndPassword(auth, email, pass);
         }
-      }, 400);
+        // onAuthStateChanged will handle the redirect
+        loginBtn.classList.add('success');
+        btnText.textContent = 'Welcome!';
+      } catch (err) {
+        card.classList.remove('shake');
+        void card.offsetWidth;
+        card.classList.add('shake');
+        errMsg.textContent  = friendlyError(err.code);
+        loginBtn.disabled   = false;
+        btnText.textContent = isRegisterMode ? 'Create Account' : 'Login';
+      }
     });
+
+    /* ── Firebase error → readable message ── */
+    function friendlyError(code) {
+      switch (code) {
+        case 'auth/invalid-email':            return 'Invalid email address.';
+        case 'auth/user-not-found':           return 'No account found with this email.';
+        case 'auth/wrong-password':           return 'Incorrect password.';
+        case 'auth/invalid-credential':       return 'Invalid email or password.';
+        case 'auth/email-already-in-use':     return 'This email is already registered.';
+        case 'auth/weak-password':            return 'Password must be at least 6 characters.';
+        case 'auth/too-many-requests':        return 'Too many attempts. Try again later.';
+        default:                              return 'Something went wrong. Please try again.';
+      }
+    }
   </script>
 
 </body>

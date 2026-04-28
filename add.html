@@ -27,7 +27,7 @@
 </head>
 <body>
   <!-- auth guard -->
-  <script> if (!localStorage.getItem('loggedIn')) { window.location.replace('login.html'); } </script>
+  <script type="module" src="js/auth-guard.js"></script>
 
   <!-- Shared navbar -->
   <nav id="app-nav"></nav>

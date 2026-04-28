@@ -2,7 +2,7 @@
   const page     = (location.pathname.split('/').pop() || '').toLowerCase();
   const q        = new URLSearchParams(location.search);
   const type     = (q.get('type') || '').toLowerCase();
-  const username = localStorage.getItem('username') || 'User';
+  const username = sessionStorage.getItem('userEmail') || 'User';
 
   const active = {
     home:      page.includes('home'),
@@ -109,9 +109,12 @@
   const onReady = () => {
     function doLogout(e) {
       e.preventDefault();
-      localStorage.removeItem('loggedIn');
-      localStorage.removeItem('username');
-      location.href = 'login.html';
+      if (typeof window.__authSignOut === 'function') {
+        window.__authSignOut();
+      } else {
+        sessionStorage.removeItem('userEmail');
+        location.href = 'login.html';
+      }
     }
 
     const logoutBtn    = document.getElementById('logoutBtn');
