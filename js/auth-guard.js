@@ -1,6 +1,6 @@
 import { initializeApp, getApps, getApp }       from "https://www.gstatic.com/firebasejs/11.6.0/firebase-app.js";
 import { getAuth, onAuthStateChanged, signOut }  from "https://www.gstatic.com/firebasejs/11.6.0/firebase-auth.js";
-import { getFirestore, doc, setDoc, serverTimestamp }
+import { getFirestore, doc, setDoc, serverTimestamp, collection, getDocs }
                                                  from "https://www.gstatic.com/firebasejs/11.6.0/firebase-firestore.js";
 import { firebaseConfig }                        from "./firebase-config.js";
 
@@ -23,6 +23,11 @@ onAuthStateChanged(auth, (user) => {
       sessionStorage.clear();
       window.location.href = 'login.html';
     });
+
+    // Check pending friend requests and store count for nav badge
+    getDocs(collection(db, "friendRequests", user.uid, "from"))
+      .then(snap => sessionStorage.setItem('friendReqCount', snap.size))
+      .catch(() => {});
 
     // Sync public profile so others can discover this user
     setDoc(doc(db, "profiles", user.uid), {

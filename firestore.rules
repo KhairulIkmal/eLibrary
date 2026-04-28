@@ -40,7 +40,7 @@ service cloud.firestore {
     // Only allowed if a pending request exists (prevents unsolicited adds)
     match /users/{uid}/friends/{friendUid} {
       allow create: if request.auth != null && request.auth.uid == friendUid &&
-        exists(/databases/$(database)/documents/friendRequests/$(uid)/from/$(friendUid));
+        exists(/databases/$(database)/documents/friendRequests/$(friendUid)/from/$(uid));
       allow delete: if request.auth != null && request.auth.uid == friendUid;
     }
 

@@ -62,12 +62,17 @@
     </a>
 
     <div class="nav-links">
-      ${links.map(l => `
+      ${links.map(l => {
+        const hasBadge = l.key === 'friends' && parseInt(sessionStorage.getItem('friendReqCount') || '0') > 0;
+        return `
         <a href="${l.href}" class="nav-link ${active[l.key] ? 'active' : ''}">
-          <i class="fa-solid ${l.icon}"></i>
+          <span style="position:relative;display:inline-flex;align-items:center;">
+            <i class="fa-solid ${l.icon}"></i>
+            ${hasBadge ? `<span class="nav-badge-dot"></span>` : ''}
+          </span>
           <span>${l.label}</span>
-        </a>
-      `).join('')}
+        </a>`;
+      }).join('')}
     </div>
 
     <div class="nav-right">
@@ -97,11 +102,16 @@
         : `<i class="fa-solid fa-circle-user"></i>`}
       ${username}
     </div>
-    ${links.map(l => `
+    ${links.map(l => {
+      const hasBadge = l.key === 'friends' && parseInt(sessionStorage.getItem('friendReqCount') || '0') > 0;
+      return `
       <a href="${l.href}" class="nav-mobile-link ${active[l.key] ? 'active' : ''}">
-        <i class="fa-solid ${l.icon}"></i> ${l.label}
-      </a>
-    `).join('')}
+        <span style="position:relative;display:inline-flex;align-items:center;">
+          <i class="fa-solid ${l.icon}"></i>
+          ${hasBadge ? `<span class="nav-badge-dot"></span>` : ''}
+        </span> ${l.label}
+      </a>`;
+    }).join('')}
     <a id="logoutMobile" href="#" class="nav-mobile-link nav-mobile-logout">
       <i class="fa-solid fa-right-from-bracket"></i> Logout
     </a>

@@ -230,6 +230,15 @@ input.invalid,select.invalid{border-color:#f44336 !important;box-shadow:0 0 6px 
 .platform-del{position:absolute;top:8px;right:8px;background:rgba(192,57,43,.85);border:none;border-radius:8px;color:#fff;width:30px;height:30px;cursor:pointer;display:flex;align-items:center;justify-content:center;opacity:0;transition:opacity .2s;}
 .card:hover .platform-del{opacity:1;}
 
+/* ── NAV BADGE DOT ───────────────────────────────────────── */
+.nav-badge-dot {
+  position: absolute; top: -3px; right: -5px;
+  width: 8px; height: 8px; border-radius: 50%;
+  background: #ff3333;
+  border: 1.5px solid #000;
+  box-shadow: 0 0 6px rgba(255,0,0,0.7);
+}
+
 /* ── NAV AVATAR ──────────────────────────────────────────── */
 .nav-user { cursor: pointer; transition: background .15s, box-shadow .15s; }
 .nav-user:hover { background: rgba(255,255,255,0.09); box-shadow: 0 0 0 1px rgba(255,0,0,0.2); }
