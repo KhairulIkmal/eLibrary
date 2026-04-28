@@ -47,6 +47,12 @@
           </div>
         </div>
 
+        <!-- Username — only shown in register mode -->
+        <div class="field-group" id="usernameGroup" style="display:none;">
+          <label for="regUsername"><i class="fa-solid fa-at"></i> Username</label>
+          <input type="text" id="regUsername" placeholder="3–20 chars: letters, numbers, _" maxlength="20" autocomplete="off" />
+        </div>
+
         <!-- Confirm password — only shown in register mode -->
         <div class="field-group" id="confirmGroup" style="display:none;">
           <label for="confirmPassword"><i class="fa-solid fa-lock"></i> Confirm Password</label>
@@ -77,8 +83,10 @@
     import { initializeApp, getApps, getApp }
       from "https://www.gstatic.com/firebasejs/11.6.0/firebase-app.js";
     import { getAuth, signInWithEmailAndPassword,
-             createUserWithEmailAndPassword, onAuthStateChanged }
+             createUserWithEmailAndPassword, onAuthStateChanged, updateProfile }
       from "https://www.gstatic.com/firebasejs/11.6.0/firebase-auth.js";
+    import { checkUsernameAvailable, claimUsername, upsertPublicProfile }
+      from "./js/firebase-service.js";
     import { firebaseConfig } from "./js/firebase-config.js";
 
     const app  = getApps().length ? getApp() : initializeApp(firebaseConfig);
@@ -103,6 +111,8 @@
     const pwToggle      = document.getElementById('pwToggle');
     const confirmInput  = document.getElementById('confirmPassword');
     const confirmGroup  = document.getElementById('confirmGroup');
+    const usernameInput = document.getElementById('regUsername');
+    const usernameGroup = document.getElementById('usernameGroup');
     const errMsg        = document.getElementById('errMsg');
     const formSubtitle  = document.getElementById('formSubtitle');
     const toggleLink    = document.getElementById('toggleLink');
@@ -120,6 +130,8 @@
         formSubtitle.textContent      = 'Create your account';
         btnText.textContent           = 'Create Account';
         btnIcon.className             = 'fa-solid fa-user-plus';
+        usernameGroup.style.display   = '';
+        usernameInput.required        = true;
         confirmGroup.style.display    = '';
         confirmInput.required         = true;
         toggleMsg.textContent         = 'Already have an account?';
@@ -128,6 +140,8 @@
         formSubtitle.textContent      = 'Welcome back';
         btnText.textContent           = 'Login';
         btnIcon.className             = 'fa-solid fa-arrow-right-to-bracket';
+        usernameGroup.style.display   = 'none';
+        usernameInput.required        = false;
         confirmGroup.style.display    = 'none';
         confirmInput.required         = false;
         toggleMsg.textContent         = "Don't have an account?";
@@ -145,12 +159,30 @@
     /* ── Form submit ── */
     form.addEventListener('submit', async (e) => {
       e.preventDefault();
-      const email = emailInput.value.trim();
-      const pass  = pwInput.value;
+      const email    = emailInput.value.trim();
+      const pass     = pwInput.value;
+      const username = usernameInput.value.trim();
 
       if (isRegisterMode && pass !== confirmInput.value) {
         errMsg.textContent = 'Passwords do not match.';
         return;
+      }
+
+      if (isRegisterMode) {
+        if (!/^[a-zA-Z0-9_]{3,20}$/.test(username)) {
+          errMsg.textContent = 'Username must be 3–20 characters: letters, numbers, or _.';
+          return;
+        }
+        btnText.textContent = 'Checking username...';
+        loginBtn.disabled   = true;
+        errMsg.textContent  = '';
+        const available = await checkUsernameAvailable(username);
+        if (!available) {
+          errMsg.textContent  = 'That username is already taken.';
+          loginBtn.disabled   = false;
+          btnText.textContent = 'Create Account';
+          return;
+        }
       }
 
       loginBtn.disabled   = true;
@@ -159,7 +191,10 @@
 
       try {
         if (isRegisterMode) {
-          await createUserWithEmailAndPassword(auth, email, pass);
+          const { user } = await createUserWithEmailAndPassword(auth, email, pass);
+          await updateProfile(user, { displayName: username });
+          await claimUsername(username, '');
+          await upsertPublicProfile({ ...user, displayName: username });
         } else {
           await signInWithEmailAndPassword(auth, email, pass);
         }
