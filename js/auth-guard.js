@@ -9,11 +9,19 @@ onAuthStateChanged(auth, (user) => {
   if (!user) {
     window.location.replace('login.html');
   } else {
-    sessionStorage.setItem('userEmail', user.email);
-    // Expose signOut globally so nav.js (non-module) can call it
+    sessionStorage.setItem('userEmail',  user.email        || '');
+    sessionStorage.setItem('userName',   user.displayName  || '');
+    sessionStorage.setItem('userPhoto',  user.photoURL     || '');
+
+    window.__authUser     = user;
+    window.__authInstance = auth;
+
     window.__authSignOut = () => signOut(auth).then(() => {
-      sessionStorage.removeItem('userEmail');
+      sessionStorage.clear();
       window.location.href = 'login.html';
     });
+
+    // Load profile module
+    import('./profile.js').catch(() => {});
   }
 });

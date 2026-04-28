@@ -230,6 +230,110 @@ input.invalid,select.invalid{border-color:#f44336 !important;box-shadow:0 0 6px 
 .platform-del{position:absolute;top:8px;right:8px;background:rgba(192,57,43,.85);border:none;border-radius:8px;color:#fff;width:30px;height:30px;cursor:pointer;display:flex;align-items:center;justify-content:center;opacity:0;transition:opacity .2s;}
 .card:hover .platform-del{opacity:1;}
 
+/* ── NAV AVATAR ──────────────────────────────────────────── */
+.nav-user { cursor: pointer; transition: background .15s, box-shadow .15s; }
+.nav-user:hover { background: rgba(255,255,255,0.09); box-shadow: 0 0 0 1px rgba(255,0,0,0.2); }
+.nav-avatar-img {
+  width: 24px; height: 24px; border-radius: 50%;
+  object-fit: cover; display: block;
+  border: 1px solid rgba(255,0,0,0.4);
+}
+.nav-user-avatar { display:flex; align-items:center; }
+
+/* ── PROFILE MODAL ───────────────────────────────────────── */
+.profile-overlay {
+  position: fixed; inset: 0; z-index: 2000;
+  background: rgba(0,0,0,.85);
+  display: flex; align-items: center; justify-content: center; padding: 20px;
+  opacity: 0; pointer-events: none;
+  transition: opacity .2s;
+}
+.profile-overlay.active { opacity: 1; pointer-events: auto; }
+
+.profile-modal {
+  background: #111; border: 1px solid rgba(255,0,0,0.2);
+  border-radius: 20px; padding: 28px 28px 24px;
+  width: 100%; max-width: 400px;
+  transform: scale(.94); transition: transform .2s;
+}
+.profile-overlay.active .profile-modal { transform: scale(1); }
+
+.profile-header {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 24px;
+}
+.profile-header h2 { font-size: 16px; color: #fff; margin: 0; }
+.profile-close {
+  background: #1a1a1a; border: 1px solid #333; border-radius: 8px;
+  color: #aaa; padding: 5px 10px; cursor: pointer; font-size: 13px;
+  transition: color .15s, border-color .15s;
+}
+.profile-close:hover { color: #fff; border-color: #666; }
+
+/* Avatar */
+.profile-avatar-wrap {
+  position: relative; display: flex;
+  justify-content: center; margin-bottom: 24px;
+}
+.profile-avatar {
+  width: 90px; height: 90px; border-radius: 50%;
+  background: #1a1a1a; border: 2px solid rgba(255,0,0,0.35);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 42px; color: rgba(255,0,0,0.6); overflow: hidden;
+}
+.profile-avatar img {
+  width: 100%; height: 100%; object-fit: cover; display: block;
+}
+.profile-avatar-btn {
+  position: absolute; bottom: 0; right: calc(50% - 52px);
+  width: 28px; height: 28px; border-radius: 50%;
+  background: rgba(255,0,0,0.75); border: 2px solid #111;
+  color: #fff; font-size: 11px; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: background .15s;
+}
+.profile-avatar-btn:hover { background: rgba(255,0,0,1); }
+
+/* Fields */
+.profile-fields { display: flex; flex-direction: column; gap: 14px; margin-bottom: 16px; }
+.profile-field { display: flex; flex-direction: column; gap: 6px; }
+.profile-field label { font-size: 11px; color: rgba(255,255,255,.45); letter-spacing: .5px; }
+.profile-field input {
+  padding: 11px 14px; background: rgba(255,255,255,.04);
+  border: 1px solid rgba(255,255,255,.1); border-radius: 10px;
+  color: #fff; font-family: "Bungee", Arial, sans-serif; font-size: 13px;
+  outline: none; transition: border-color .15s, box-shadow .15s;
+}
+.profile-field input:focus {
+  border-color: rgba(255,0,0,.5);
+  box-shadow: 0 0 0 3px rgba(255,0,0,.1);
+}
+.profile-field input:disabled { opacity: .4; cursor: not-allowed; }
+
+/* Message */
+.profile-msg { font-size: 12px; min-height: 18px; text-align: center; margin-bottom: 10px; }
+.profile-msg.success { color: #4caf50; }
+.profile-msg.error   { color: #f44336; }
+
+/* Actions */
+.profile-actions { display: flex; gap: 10px; }
+.profile-save {
+  flex: 1; padding: 11px; background: linear-gradient(135deg,#cc0000,#ff000086);
+  border: none; border-radius: 10px; color: #fff;
+  font-family: "Bungee", Arial, sans-serif; font-size: 12px;
+  cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 7px;
+  box-shadow: 0 4px 16px rgba(255,0,0,.25); transition: box-shadow .15s;
+}
+.profile-save:hover:not(:disabled) { box-shadow: 0 0 22px rgba(255,0,0,.5); }
+.profile-save:disabled { opacity: .5; cursor: not-allowed; }
+.profile-cancel {
+  padding: 11px 18px; background: transparent;
+  border: 1px solid #2a2a2a; border-radius: 10px; color: #666;
+  font-family: "Bungee", Arial, sans-serif; font-size: 12px; cursor: pointer;
+  transition: color .15s, border-color .15s;
+}
+.profile-cancel:hover { color: #ccc; border-color: #555; }
+
 /* ── PASSWORD TOGGLE (login) ─────────────────────────────── */
 .pw-wrap{position:relative;}
 .pw-wrap input{width:100%;padding-right:40px;box-sizing:border-box;}

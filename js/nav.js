@@ -2,7 +2,10 @@
   const page     = (location.pathname.split('/').pop() || '').toLowerCase();
   const q        = new URLSearchParams(location.search);
   const type     = (q.get('type') || '').toLowerCase();
-  const username = sessionStorage.getItem('userEmail') || 'User';
+  const userEmail = sessionStorage.getItem('userEmail') || '';
+  const userName  = sessionStorage.getItem('userName')  || '';
+  const userPhoto = sessionStorage.getItem('userPhoto') || '';
+  const username  = userName || (userEmail ? userEmail.split('@')[0] : 'User');
 
   const active = {
     home:      page.includes('home'),
@@ -66,9 +69,14 @@
     </div>
 
     <div class="nav-right">
-      <div class="nav-user">
-        <i class="fa-solid fa-circle-user"></i>
-        <span>${username}</span>
+      <div class="nav-user" id="navUserChip" role="button" tabindex="0" title="My Profile">
+        <span class="nav-user-avatar">
+          ${userPhoto
+            ? `<img src="${userPhoto}" alt="pfp" class="nav-avatar-img">`
+            : `<i class="fa-solid fa-circle-user"></i>`}
+        </span>
+        <span class="nav-user-label">${username}</span>
+        <i class="fa-solid fa-chevron-down" style="font-size:9px;opacity:.4;margin-left:2px;"></i>
       </div>
       <a id="logoutBtn" href="#" class="nav-logout" title="Logout" aria-label="Logout">
         <i class="fa-solid fa-right-from-bracket"></i>
@@ -81,8 +89,11 @@
   `;
 
   const mobileHtml = `
-    <div class="nav-mobile-user">
-      <i class="fa-solid fa-circle-user"></i> ${username}
+    <div class="nav-mobile-user" id="navMobileUserChip" role="button" style="cursor:pointer;">
+      ${userPhoto
+        ? `<img src="${userPhoto}" alt="pfp" class="nav-avatar-img" style="width:22px;height:22px;">`
+        : `<i class="fa-solid fa-circle-user"></i>`}
+      ${username}
     </div>
     ${links.map(l => `
       <a href="${l.href}" class="nav-mobile-link ${active[l.key] ? 'active' : ''}">
@@ -121,6 +132,14 @@
     const logoutMobile = document.getElementById('logoutMobile');
     if (logoutBtn)    logoutBtn.addEventListener('click', doLogout);
     if (logoutMobile) logoutMobile.addEventListener('click', doLogout);
+
+    function openProfile() {
+      if (typeof window.__openProfile === 'function') window.__openProfile();
+    }
+    const userChip       = document.getElementById('navUserChip');
+    const mobileUserChip = document.getElementById('navMobileUserChip');
+    if (userChip)       userChip.addEventListener('click', openProfile);
+    if (mobileUserChip) mobileUserChip.addEventListener('click', openProfile);
 
     const hamburger = document.getElementById('navHamburger');
     const navMobile = document.getElementById('navMobile');
