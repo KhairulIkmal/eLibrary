@@ -88,6 +88,7 @@
     <button class="tab" data-type="manhua"> <i class="fa-solid fa-book"></i>       Manhua</button>
     <button class="tab" data-type="manga">  <i class="fa-solid fa-scroll"></i>     Manga</button>
     <button class="tab" data-type="movie">  <i class="fa-solid fa-film"></i>       Movies</button>
+    <button class="tab" data-type="__feed"><i class="fa-solid fa-rss"></i>         Feed</button>
   </div>
 
   <!-- SEARCH / FILTER -->
@@ -118,6 +119,11 @@
       <p style="margin:0 0 6px">No items found.</p>
       <p style="font-size:12px;color:#666;margin:0">Adjust your filters or <a href="add.html" style="color:#ff4444">add a new item</a>.</p>
     </div>
+
+    <!-- FEED PANEL -->
+    <div id="feedPanel" style="display:none;max-width:680px;margin:0 auto;">
+      <div id="feedList"></div>
+    </div>
   </main>
 
   <!-- Floating Add button -->
@@ -125,7 +131,7 @@
 
   <!-- Page logic -->
   <script type="module">
-    import { getWishlist } from "./js/firebase-service.js";
+    import { getWishlist, getAllFriendsActivity } from "./js/firebase-service.js";
 
     function langMeta(code){
       switch((code||'').toLowerCase()){
@@ -138,11 +144,65 @@
 
     const grid      = document.getElementById('grid');
     const empty     = document.getElementById('empty');
+    const feedPanel = document.getElementById('feedPanel');
+    const feedList  = document.getElementById('feedList');
+    const toolbar   = document.querySelector('.toolbar');
     const q         = document.getElementById('q');
     const statusSel = document.getElementById('status');
     const btn       = document.getElementById('searchBtn');
 
     let activeType = '';
+    let feedLoaded = false;
+
+    function timeAgo(ts) {
+      if (!ts) return '';
+      const diff = Date.now() - (ts.toMillis?.() || new Date(ts).getTime());
+      const m = Math.floor(diff / 60000);
+      if (m < 1) return 'just now';
+      if (m < 60) return `${m}m ago`;
+      const h = Math.floor(m / 60);
+      if (h < 24) return `${h}h ago`;
+      return `${Math.floor(h / 24)}d ago`;
+    }
+
+    function actionText(act) {
+      const t = `<strong>${act.itemTitle || 'a title'}</strong>`;
+      switch (act.type) {
+        case 'added':          return `added ${t} to their library`;
+        case 'completed':      return `completed ${t}`;
+        case 'dropped':        return `dropped ${t}`;
+        case 'rated':          return `rated ${t} ★${act.rating}`;
+        case 'status_changed': return `marked ${t} as ${(act.newStatus||'').replace('_',' ')}`;
+        default:               return `updated ${t}`;
+      }
+    }
+
+    async function loadFeed() {
+      feedList.innerHTML = `<div style="text-align:center;padding:40px;color:#555;font-size:12px;"><i class="fa-solid fa-spinner fa-spin"></i> Loading activity...</div>`;
+      try {
+        const acts = await getAllFriendsActivity();
+        if (!acts.length) {
+          feedList.innerHTML = `<div style="text-align:center;padding:60px 20px;color:#444;font-size:12px;"><i class="fa-solid fa-rss" style="font-size:36px;opacity:.15;display:block;margin-bottom:14px"></i>No friend activity yet.<br>Add friends to see what they're watching!</div>`;
+          return;
+        }
+        feedList.innerHTML = acts.map(act => `
+          <div style="display:flex;align-items:center;gap:14px;background:#111;border:1px solid #1a1a1a;border-radius:14px;padding:14px 16px;margin-bottom:10px;">
+            <div style="width:40px;height:40px;border-radius:50%;background:#1a1a1a;border:2px solid rgba(255,0,0,.25);flex-shrink:0;overflow:hidden;display:flex;align-items:center;justify-content:center;color:rgba(255,0,0,.5);">
+              ${act.friendPhoto ? `<img src="${act.friendPhoto}" style="width:100%;height:100%;object-fit:cover;" onerror="this.style.display='none'">` : `<i class="fa-solid fa-circle-user" style="font-size:20px"></i>`}
+            </div>
+            ${act.coverPath ? `<img src="${act.coverPath}" style="width:36px;height:48px;object-fit:cover;border-radius:6px;flex-shrink:0;" onerror="this.style.display='none'">` : ''}
+            <div style="flex:1;min-width:0;">
+              <div style="font-size:12px;color:#ccc;line-height:1.5;">
+                <span style="color:#ff9999">${act.friendUsername || 'Friend'}</span> ${actionText(act)}
+              </div>
+              <div style="font-size:10px;color:#444;margin-top:3px;">${timeAgo(act.timestamp)}</div>
+            </div>
+          </div>`).join('');
+        feedLoaded = true;
+      } catch(e) {
+        feedList.innerHTML = `<div style="text-align:center;padding:40px;color:#555;font-size:12px;">${e.message || 'Failed to load feed.'}</div>`;
+      }
+    }
 
     // Tab wiring
     document.querySelectorAll('.tab').forEach(tab => {
@@ -150,7 +210,15 @@
         document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
         tab.classList.add('active');
         activeType = tab.dataset.type;
-        load();
+
+        const isFeed = activeType === '__feed';
+        toolbar.style.display    = isFeed ? 'none' : '';
+        grid.style.display       = isFeed ? 'none' : '';
+        empty.style.display      = 'none';
+        feedPanel.style.display  = isFeed ? '' : 'none';
+
+        if (isFeed) { loadFeed(); }
+        else load();
       });
     });
 

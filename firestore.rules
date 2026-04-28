@@ -44,6 +44,21 @@ service cloud.firestore {
       allow delete: if request.auth != null && request.auth.uid == friendUid;
     }
 
+    // Activity feed — owner writes, friends can read
+    match /users/{uid}/activity/{docId} {
+      allow read: if request.auth != null && (
+        request.auth.uid == uid ||
+        exists(/databases/$(database)/documents/users/$(uid)/friends/$(request.auth.uid))
+      );
+      allow write: if request.auth != null && request.auth.uid == uid;
+    }
+
+    // Friend reviews — any auth user can read, owner writes their own entry
+    match /reviews/{titleSlug}/entries/{uid} {
+      allow read:  if request.auth != null;
+      allow write: if request.auth != null && request.auth.uid == uid;
+    }
+
     match /{document=**} { allow read, write: if false; }
   }
 }

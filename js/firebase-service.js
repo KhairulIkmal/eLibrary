@@ -1,7 +1,7 @@
 import { initializeApp, getApps, getApp }                      from "https://www.gstatic.com/firebasejs/11.6.0/firebase-app.js";
 import { getFirestore, collection, addDoc, getDocs, updateDoc,
          doc, orderBy, query, serverTimestamp, deleteDoc,
-         getDoc, setDoc, where }                              from "https://www.gstatic.com/firebasejs/11.6.0/firebase-firestore.js";
+         getDoc, setDoc, where, limit }                       from "https://www.gstatic.com/firebasejs/11.6.0/firebase-firestore.js";
 import { getStorage, ref, uploadBytes, getDownloadURL,
          deleteObject }                                        from "https://www.gstatic.com/firebasejs/11.6.0/firebase-storage.js";
 import { getAuth, onAuthStateChanged }                         from "https://www.gstatic.com/firebasejs/11.6.0/firebase-auth.js";
@@ -88,21 +88,32 @@ export async function addWishlistItem(fields, coverFile) {
     created_at:       now,
     updated_at:       now,
   });
+  logActivity('added', { itemId: docRef.id, itemTitle: fields.title || '', itemType: fields.type || '', coverPath: cover_path }).catch(() => {});
   return { id: docRef.id, cover_path };
 }
 
 export async function updateWishlistItem(docId, fields) {
+  const snap = await getDoc(await wishlistDoc(docId));
+  const existing = snap.exists() ? snap.data() : {};
+
   const payload = { updated_at: serverTimestamp() };
-  if (fields.status     !== undefined) payload.status       = fields.status;
-  if (fields.last_chapter !== undefined) payload.last_chapter = fields.last_chapter;
+  if (fields.status       !== undefined) payload.status           = fields.status;
+  if (fields.last_chapter !== undefined) payload.last_chapter     = fields.last_chapter;
   if (fields.progress_current !== undefined) payload.progress_current = fields.progress_current != null ? Number(fields.progress_current) : null;
   if (fields.progress_total   !== undefined) payload.progress_total   = fields.progress_total   != null ? Number(fields.progress_total)   : null;
+  if (fields.rating           !== undefined) payload.rating           = fields.rating != null ? Number(fields.rating) : null;
   if (fields.status === 'completed') payload.finish_date = serverTimestamp();
-  if (fields.status === 'watching' || fields.status === 'reading') {
-    const snap = await getDoc(await wishlistDoc(docId));
-    if (snap.exists() && !snap.data().start_date) payload.start_date = serverTimestamp();
+  if ((fields.status === 'watching' || fields.status === 'reading') && !existing.start_date) {
+    payload.start_date = serverTimestamp();
   }
   await updateDoc(await wishlistDoc(docId), payload);
+
+  // Log activity (fire-and-forget)
+  const base = { itemId: docId, itemTitle: existing.title || '', itemType: existing.type || '', coverPath: existing.cover_path || '' };
+  if (fields.status === 'completed') logActivity('completed', base).catch(() => {});
+  else if (fields.status === 'dropped') logActivity('dropped', base).catch(() => {});
+  else if (fields.rating != null && fields.rating !== existing.rating) logActivity('rated', { ...base, rating: Number(fields.rating) }).catch(() => {});
+  else if (fields.status && fields.status !== existing.status) logActivity('status_changed', { ...base, newStatus: fields.status }).catch(() => {});
 }
 
 /* ── platforms ────────────────────────────────────────── */
@@ -208,6 +219,7 @@ export async function addWishlistItemFromUrl(fields, coverUrl) {
     created_at:       now,
     updated_at:       now,
   });
+  logActivity('added', { itemId: '', itemTitle: fields.title || '', itemType: fields.type || '', coverPath: coverUrl || '' }).catch(() => {});
 }
 
 export async function addPlatform(fields, iconFile) {
@@ -334,4 +346,97 @@ export async function removeFriend(friendUid) {
   const myUid = await getUid();
   await deleteDoc(doc(db, "users", myUid,     "friends", friendUid));
   await deleteDoc(doc(db, "users", friendUid, "friends", myUid)).catch(() => {});
+}
+
+/* ── Activity feed ─────────────────────────────────────────── */
+
+export async function logActivity(type, data) {
+  const uid = await getUid();
+  const col = collection(db, "users", uid, "activity");
+  await addDoc(col, {
+    type,
+    itemId:    data.itemId    || '',
+    itemTitle: data.itemTitle || '',
+    itemType:  data.itemType  || '',
+    coverPath: data.coverPath || '',
+    rating:    data.rating    != null ? data.rating : null,
+    newStatus: data.newStatus || '',
+    timestamp: serverTimestamp(),
+  });
+}
+
+export async function getFriendActivity(friendUid, limitCount = 15) {
+  const snap = await getDocs(query(
+    collection(db, "users", friendUid, "activity"),
+    orderBy("timestamp", "desc"),
+    limit(limitCount)
+  ));
+  return snap.docs.map(d => ({ id: d.id, friendUid, ...d.data() }));
+}
+
+export async function getAllFriendsActivity() {
+  const friends = await getFriends();
+  if (!friends.length) return [];
+  const allResults = await Promise.all(
+    friends.map(f =>
+      getFriendActivity(f.uid, 10)
+        .then(acts => acts.map(a => ({ ...a, friendUsername: f.username || '', friendPhoto: f.photoURL || '' })))
+        .catch(() => [])
+    )
+  );
+  return allResults.flat().sort((a, b) => {
+    const ta = a.timestamp?.toMillis?.() || 0;
+    const tb = b.timestamp?.toMillis?.() || 0;
+    return tb - ta;
+  }).slice(0, 50);
+}
+
+export async function getSharedTitles(friendUid) {
+  const [myItems, friendItems] = await Promise.all([
+    getWishlist(),
+    getFriendWishlist(friendUid)
+  ]);
+  const myMap = new Map(myItems.map(i => [(i.title || '').toLowerCase().trim(), i]));
+  return friendItems
+    .filter(fi => myMap.has((fi.title || '').toLowerCase().trim()))
+    .map(fi => ({ ...fi, myItem: myMap.get((fi.title || '').toLowerCase().trim()) }));
+}
+
+/* ── Friend reviews ────────────────────────────────────────── */
+
+function slugify(title) {
+  return (title || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'untitled';
+}
+
+export async function submitReview(title, { rating, text }) {
+  const uid = await getUid();
+  const me  = auth.currentUser;
+  const slug = slugify(title);
+  await setDoc(doc(db, "reviews", slug, "entries", uid), {
+    uid,
+    username: me.displayName || me.email || '',
+    photoURL: me.photoURL    || '',
+    rating:   rating != null  ? Number(rating) : null,
+    text:     text   || '',
+    timestamp: serverTimestamp(),
+  });
+}
+
+export async function getMyReview(title) {
+  const uid  = await getUid();
+  const slug = slugify(title);
+  const snap = await getDoc(doc(db, "reviews", slug, "entries", uid));
+  return snap.exists() ? { id: snap.id, ...snap.data() } : null;
+}
+
+export async function getFriendReviews(title) {
+  const friends = await getFriends();
+  if (!friends.length) return [];
+  const slug = slugify(title);
+  const snaps = await Promise.all(
+    friends.map(f => getDoc(doc(db, "reviews", slug, "entries", f.uid)).catch(() => null))
+  );
+  return snaps
+    .filter(s => s && s.exists())
+    .map(s => ({ id: s.id, ...s.data() }));
 }

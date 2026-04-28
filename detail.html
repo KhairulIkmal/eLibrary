@@ -131,7 +131,7 @@
   </div>
 
   <script type="module">
-    import { getWishlistItem, deleteWishlistItem } from "./js/firebase-service.js";
+    import { getWishlistItem, deleteWishlistItem, submitReview, getMyReview, getFriendReviews } from "./js/firebase-service.js";
     import { showToast } from "./js/toast.js";
 
     const params = new URLSearchParams(location.search);
@@ -329,6 +329,99 @@
         showToast(err.message || 'Delete failed.', 'error');
       }
     });
+
+    /* ── REVIEWS ── */
+    async function loadReviews() {
+      const reviewsWrap = document.getElementById('reviewsSection');
+      if (!reviewsWrap || !item) return;
+
+      const [myReview, friendReviews] = await Promise.all([
+        getMyReview(item.title).catch(() => null),
+        getFriendReviews(item.title).catch(() => [])
+      ]);
+
+      function starsHtml(r) {
+        if (r == null) return '';
+        return Array.from({length:10}, (_,i) =>
+          `<i class="fa-${i < Math.floor(r) ? 'solid' : i === Math.floor(r) && (r%1)>=0.5 ? 'solid fa-star-half-stroke' : 'regular'} fa-star" style="color:${i<r?'#f5c518':'#333'};font-size:11px"></i>`
+        ).join('') + ` <span style="color:#f5c518;font-size:11px">${r}/10</span>`;
+      }
+
+      function reviewCard(rv, isMe) {
+        return `
+          <div style="background:#0d0d0d;border:1px solid #1a1a1a;border-radius:12px;padding:14px 16px;margin-bottom:10px;">
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
+              <div style="width:30px;height:30px;border-radius:50%;background:#1a1a1a;border:2px solid rgba(255,0,0,.2);flex-shrink:0;overflow:hidden;display:flex;align-items:center;justify-content:center;color:rgba(255,0,0,.4);">
+                ${rv.photoURL ? `<img src="${rv.photoURL}" style="width:100%;height:100%;object-fit:cover;" onerror="this.style.display='none'">` : `<i class="fa-solid fa-circle-user" style="font-size:16px"></i>`}
+              </div>
+              <span style="font-size:12px;color:${isMe?'#ff9999':'#ccc'}">${isMe?'You':rv.username||'Friend'}</span>
+              ${rv.rating != null ? `<span style="margin-left:auto;">${starsHtml(rv.rating)}</span>` : ''}
+            </div>
+            ${rv.text ? `<div style="font-size:12px;color:#888;line-height:1.6;white-space:pre-wrap">${rv.text}</div>` : ''}
+          </div>`;
+      }
+
+      let html = '';
+
+      // My review form
+      html += `
+        <div style="background:#0d0d0d;border:1px solid #1c1c1c;border-radius:12px;padding:16px;margin-bottom:14px;">
+          <div style="font-size:11px;color:#666;margin-bottom:10px;">YOUR REVIEW</div>
+          <div style="margin-bottom:10px;">
+            <label style="font-size:11px;color:#888;display:block;margin-bottom:4px;">Rating (1–10)</label>
+            <input id="myRating" type="number" min="1" max="10" step="0.5" placeholder="e.g. 8.5" value="${myReview?.rating ?? ''}"
+              style="background:#121212;border:1px solid #222;border-radius:8px;color:#fff;padding:8px 10px;width:100px;font-family:inherit;outline:none;">
+          </div>
+          <div style="margin-bottom:12px;">
+            <label style="font-size:11px;color:#888;display:block;margin-bottom:4px;">Review</label>
+            <textarea id="myReviewText" rows="3" placeholder="Write your thoughts..."
+              style="width:100%;background:#121212;border:1px solid #222;border-radius:8px;color:#fff;padding:8px 10px;font-family:inherit;outline:none;resize:vertical;box-sizing:border-box;">${myReview?.text ?? ''}</textarea>
+          </div>
+          <button id="saveReviewBtn"
+            style="background:rgba(255,0,0,.15);border:1px solid rgba(255,0,0,.3);color:#ff9999;border-radius:9px;padding:8px 16px;font-family:inherit;font-size:12px;cursor:pointer;">
+            <i class="fa-solid fa-floppy-disk"></i> Save Review
+          </button>
+        </div>`;
+
+      if (friendReviews.length) {
+        html += `<div style="font-size:11px;color:#555;margin-bottom:10px;">FRIEND REVIEWS</div>`;
+        html += friendReviews.map(r => reviewCard(r, false)).join('');
+      }
+
+      reviewsWrap.innerHTML = html;
+
+      document.getElementById('saveReviewBtn').addEventListener('click', async (e) => {
+        const btn = e.currentTarget;
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
+        try {
+          const rating = document.getElementById('myRating').value;
+          const text   = document.getElementById('myReviewText').value.trim();
+          await submitReview(item.title, {
+            rating: rating !== '' ? Number(rating) : null,
+            text
+          });
+          showToast('Review saved!', 'success');
+        } catch(err) {
+          showToast(err.message || 'Failed to save review.', 'error');
+        } finally {
+          btn.disabled = false;
+          btn.innerHTML = '<i class="fa-solid fa-floppy-disk"></i> Save Review';
+        }
+      });
+    }
+
+    // Append reviews section after content renders
+    const reviewsSection = document.createElement('div');
+    reviewsSection.id = 'reviewsSection';
+    reviewsSection.style.marginTop = '32px';
+    const sectionTitle = document.createElement('p');
+    sectionTitle.className = 'section-title';
+    sectionTitle.innerHTML = '<i class="fa-solid fa-star"></i> Reviews';
+    sectionTitle.style.cssText = 'font-size:13px;color:#666;letter-spacing:1px;text-transform:uppercase;margin:0 0 14px;padding-bottom:8px;border-bottom:1px solid #1c1c1c;';
+    content.appendChild(sectionTitle);
+    content.appendChild(reviewsSection);
+    loadReviews();
   </script>
 </body>
 </html>

@@ -96,6 +96,40 @@
     .msg-bar.err { background:rgba(244,67,54,.1);  border:1px solid rgba(244,67,54,.3); color:#e57373; }
     .msg-bar.inf { background:rgba(255,0,0,.08);   border:1px solid rgba(255,0,0,.2);   color:#ff9999; }
 
+    /* Compare modal */
+    .cmp-overlay {
+      position:fixed; inset:0; z-index:2000; background:rgba(0,0,0,.9);
+      display:flex; align-items:center; justify-content:center; padding:20px;
+      opacity:0; pointer-events:none; transition:opacity .2s;
+    }
+    .cmp-overlay.active { opacity:1; pointer-events:auto; }
+    .cmp-modal {
+      background:#111; border:1px solid #1e1e1e; border-radius:20px;
+      width:100%; max-width:560px; max-height:88vh; overflow-y:auto;
+      transform:scale(.94); transition:transform .2s; scrollbar-width:thin;
+    }
+    .cmp-overlay.active .cmp-modal { transform:scale(1); }
+    .cmp-header {
+      position:sticky; top:0; z-index:1;
+      display:flex; align-items:center; gap:12px;
+      padding:18px 22px; background:#111; border-bottom:1px solid #1a1a1a;
+    }
+    .cmp-body { padding:20px 22px; }
+    .cmp-stat { text-align:center; margin-bottom:20px; }
+    .cmp-count { font-size:42px; color:#ff9999; line-height:1; }
+    .cmp-label { font-size:11px; color:#555; margin-top:4px; }
+    .cmp-item {
+      display:flex; align-items:center; gap:10px;
+      padding:10px 12px; background:#0d0d0d; border:1px solid #1a1a1a;
+      border-radius:10px; margin-bottom:8px;
+    }
+    .cmp-thumb { width:32px; height:42px; object-fit:cover; border-radius:5px; flex-shrink:0; background:#1a1a1a; }
+    .cmp-info { flex:1; min-width:0; }
+    .cmp-title { font-size:11px; color:#ccc; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .cmp-chips { display:flex; gap:4px; margin-top:3px; flex-wrap:wrap; }
+    .cmp-chip { font-size:9px; padding:2px 6px; border-radius:999px; background:#1a1a1a; border:1px solid #252525; color:#666; }
+    .cmp-chip.red { color:#ff9999; border-color:rgba(255,0,0,.2); background:rgba(255,0,0,.07); }
+
     /* Wishlist modal */
     .wl-overlay {
       position:fixed; inset:0; z-index:2000; background:rgba(0,0,0,.9);
@@ -157,6 +191,23 @@
   <nav id="app-nav"></nav>
   <script src="js/nav.js" defer></script>
 
+  <!-- Compare Modal -->
+  <div class="cmp-overlay" id="cmpOverlay">
+    <div class="cmp-modal">
+      <div class="cmp-header">
+        <span class="wl-title" id="cmpTitle">Compare</span>
+        <button class="wl-close" id="cmpClose"><i class="fa-solid fa-xmark"></i> Close</button>
+      </div>
+      <div class="cmp-body">
+        <div class="cmp-stat">
+          <div class="cmp-count" id="cmpCount">—</div>
+          <div class="cmp-label">titles you both track</div>
+        </div>
+        <div id="cmpList"></div>
+      </div>
+    </div>
+  </div>
+
   <!-- Wishlist Modal -->
   <div class="wl-overlay" id="wlOverlay">
     <div class="wl-modal">
@@ -208,7 +259,8 @@
       declineFriendRequest,
       getFriends,
       getFriendWishlist,
-      removeFriend
+      removeFriend,
+      getSharedTitles
     } from "./js/firebase-service.js";
 
     import { getApps, getApp, initializeApp } from "https://www.gstatic.com/firebasejs/11.6.0/firebase-app.js";
@@ -225,6 +277,11 @@
     const requestsList  = document.getElementById('requestsList');
     const friendsList   = document.getElementById('friendsList');
     const msgBar        = document.getElementById('msgBar');
+    const cmpOverlay    = document.getElementById('cmpOverlay');
+    const cmpTitle      = document.getElementById('cmpTitle');
+    const cmpCount      = document.getElementById('cmpCount');
+    const cmpList       = document.getElementById('cmpList');
+    const cmpClose      = document.getElementById('cmpClose');
     const wlOverlay     = document.getElementById('wlOverlay');
     const wlGrid        = document.getElementById('wlGrid');
     const wlTitle       = document.getElementById('wlTitle');
@@ -408,6 +465,9 @@
               <button class="btn-primary" onclick="viewWishlist('${f.uid}','${esc(f.username)}','${esc(f.photoURL)}')">
                 <i class="fa-solid fa-book-open"></i> Wishlist
               </button>
+              <button class="btn-ghost" onclick="compareWith('${f.uid}','${esc(f.username)}')">
+                <i class="fa-solid fa-code-compare"></i> Compare
+              </button>
               <button class="btn-danger" onclick="handleRemove('${f.uid}', this)">
                 <i class="fa-solid fa-user-minus"></i>
               </button>
@@ -470,7 +530,48 @@
     }
     wlClose.addEventListener('click', closeWl);
     wlOverlay.addEventListener('click', e => { if (e.target === wlOverlay) closeWl(); });
-    document.addEventListener('keydown', e => { if (e.key === 'Escape') closeWl(); });
+
+    /* ── COMPARE ── */
+    const statusLabel = { watching:'Watching', reading:'Reading', completed:'Completed', on_hold:'On Hold', dropped:'Dropped', planning:'Planning', ongoing:'Watching', hiatus:'On Hold' };
+
+    window.compareWith = async (friendUid, username) => {
+      cmpTitle.textContent = `You & ${username}`;
+      cmpCount.textContent = '…';
+      cmpList.innerHTML    = `<div style="text-align:center;padding:20px;color:#555;font-size:12px;"><i class="fa-solid fa-spinner fa-spin"></i></div>`;
+      cmpOverlay.classList.add('active');
+      document.body.style.overflow = 'hidden';
+      try {
+        const shared = await getSharedTitles(friendUid);
+        cmpCount.textContent = shared.length;
+        if (!shared.length) {
+          cmpList.innerHTML = `<div style="text-align:center;color:#444;font-size:11px;padding:10px 0;">No shared titles yet.</div>`;
+          return;
+        }
+        cmpList.innerHTML = shared.map(it => `
+          <div class="cmp-item">
+            <img class="cmp-thumb" src="${esc(it.cover_path||'')}" onerror="this.style.display='none'" loading="lazy">
+            <div class="cmp-info">
+              <div class="cmp-title">${esc(it.title)}</div>
+              <div class="cmp-chips">
+                <span class="cmp-chip red">${esc(it.type||'')}</span>
+                <span class="cmp-chip">You: ${esc(statusLabel[it.myItem?.status]||it.myItem?.status||'—')}</span>
+                <span class="cmp-chip">Them: ${esc(statusLabel[it.status]||it.status||'—')}</span>
+                ${it.myItem?.rating != null ? `<span class="cmp-chip" style="color:#f5c518;border-color:#f5c51833">★ ${it.myItem.rating}</span>` : ''}
+              </div>
+            </div>
+          </div>`).join('');
+      } catch(e) {
+        cmpList.innerHTML = `<div style="text-align:center;color:#e57373;font-size:11px;">${e.message}</div>`;
+      }
+    };
+
+    function closeCmp() {
+      cmpOverlay.classList.remove('active');
+      document.body.style.overflow = '';
+    }
+    cmpClose.addEventListener('click', closeCmp);
+    cmpOverlay.addEventListener('click', e => { if (e.target === cmpOverlay) closeCmp(); });
+    document.addEventListener('keydown', e => { if (e.key === 'Escape') { closeWl(); closeCmp(); } });
 
     function esc(s) {
       return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
