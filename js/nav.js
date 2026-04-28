@@ -63,25 +63,23 @@
   const username  = userName || (userEmail ? userEmail.split('@')[0] : 'User');
 
   const active = {
-    home:      page.includes('home'),
-    explore:   page.includes('explore'),
-    streaming: page.includes('platforms') && type === 'streaming',
-    webtoon:   page.includes('platforms') && type === 'webtoon',
-    update:    page.includes('update'),
-    friends:   page.includes('friends'),
-    calendar:  page.includes('calendar'),
-    import:    page.includes('import'),
+    home:     page.includes('home'),
+    explore:  page.includes('explore'),
+    platform: page.includes('platform') || page.includes('watch'),
+    update:   page.includes('update'),
+    friends:  page.includes('friends'),
+    calendar: page.includes('calendar'),
+    import:   page.includes('import'),
   };
 
   const links = [
-    { href: 'home.html',                     label: 'Home',             icon: 'fa-house',          key: 'home'      },
-    { href: 'explore.html',                  label: 'Explore',          icon: 'fa-compass',        key: 'explore'   },
-    { href: 'platforms.html?type=streaming', label: 'Streaming',        icon: 'fa-tv',             key: 'streaming' },
-    { href: 'platforms.html?type=webtoon',   label: 'Reading',          icon: 'fa-book-open',      key: 'webtoon'   },
-    { href: 'update.html',                   label: 'Update Wishlist',  icon: 'fa-pen-to-square',  key: 'update'    },
-    { href: 'friends.html',                  label: 'Friends',          icon: 'fa-user-group',     key: 'friends'   },
-    { href: 'calendar.html',                 label: 'Calendar',         icon: 'fa-calendar-days',  key: 'calendar'  },
-    { href: 'import.html',                   label: 'Import',           icon: 'fa-file-import',    key: 'import'    },
+    { href: 'home.html',     label: 'Home',            icon: 'fa-house',         key: 'home'     },
+    { href: 'explore.html',  label: 'Explore',         icon: 'fa-compass',       key: 'explore'  },
+    { href: 'platform.html', label: 'Platform',        icon: 'fa-circle-play',   key: 'platform' },
+    { href: 'update.html',   label: 'Update Wishlist', icon: 'fa-pen-to-square', key: 'update'   },
+    { href: 'friends.html',  label: 'Friends',         icon: 'fa-user-group',    key: 'friends'  },
+    { href: 'calendar.html', label: 'Calendar',        icon: 'fa-calendar-days', key: 'calendar' },
+    { href: 'import.html',   label: 'Import',          icon: 'fa-file-import',   key: 'import'   },
   ];
 
   const logoSvg = `

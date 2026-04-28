@@ -7,13 +7,15 @@
    • External APIs (Jikan etc.) → Network-only
 ════════════════════════════════════════════════ */
 
-const SHELL_CACHE = 'elibrary-shell-v1';
+const SHELL_CACHE = 'elibrary-shell-v2';
 const IMAGE_CACHE = 'elibrary-images-v1';
 const IMAGE_MAX   = 200;
 
 const APP_SHELL = [
   '/home.html',
   '/explore.html',
+  '/platform.html',
+  '/watch.html',
   '/update.html',
   '/friends.html',
   '/calendar.html',

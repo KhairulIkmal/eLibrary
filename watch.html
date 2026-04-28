@@ -1,0 +1,384 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Watch — E-Library</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link href="css/site.css" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Bungee&display=swap" rel="stylesheet" />
+  <script src="https://kit.fontawesome.com/3c6e6d7c17.js" crossorigin="anonymous"></script>
+  <style>
+    :root{ --bg:#000; --accent:#ff000086; --text:#fff; }
+    body{ margin:0; background:var(--bg); color:var(--text); font-family:"Bungee",Arial,sans-serif; min-height:100vh; }
+  </style>
+</head>
+<body>
+  <script type="module" src="js/auth-guard.js"></script>
+
+  <nav id="app-nav"></nav>
+  <script src="js/nav.js" defer></script>
+
+  <div class="watch-wrap" id="watchWrap">
+    <!-- Loading state -->
+    <div id="loadingState" style="text-align:center;padding:60px 0;color:#444;font-size:13px;">
+      <i class="fa-solid fa-circle-notch fa-spin" style="font-size:28px;color:#333;margin-bottom:12px;display:block;"></i>
+      Loading...
+    </div>
+
+    <!-- Content (hidden until loaded) -->
+    <div id="mainContent" style="display:none;">
+      <a class="watch-back" href="platform.html">
+        <i class="fa-solid fa-arrow-left"></i> Back to Platform
+      </a>
+
+      <div class="watch-title" id="watchTitle"></div>
+      <div class="watch-meta" id="watchMeta"></div>
+
+      <!-- Player -->
+      <div class="watch-player" id="watchPlayer">
+        <div class="watch-player-msg" id="playerMsg">
+          <i class="fa-solid fa-film"></i>
+          <div id="playerMsgText">Looking up video source…</div>
+        </div>
+      </div>
+
+      <!-- Controls -->
+      <div class="watch-controls" id="watchControls" style="margin-top:14px;flex-wrap:wrap;gap:8px;display:flex;align-items:center;">
+        <button class="watch-ctrl-btn" id="btnAlt" onclick="tryAltSource()">
+          <i class="fa-solid fa-rotate"></i> Try Alternate Source
+        </button>
+        <button class="watch-ctrl-btn" id="btnYT" onclick="tryYouTube()">
+          <i class="fa-brands fa-youtube"></i> YouTube Trailer
+        </button>
+        <button class="watch-ctrl-btn primary" id="btnMark" onclick="markWatched()">
+          <i class="fa-solid fa-check"></i> <span id="btnMarkLabel">Mark Watched</span>
+        </button>
+        <select class="season-select" id="seasonSelect" style="display:none;" onchange="onSeasonChange()">
+        </select>
+      </div>
+
+      <!-- Episode grid -->
+      <div class="ep-section" id="epSection" style="display:none;">
+        <div class="ep-section-title">Episodes</div>
+        <div class="ep-page-btns" id="epPageBtns"></div>
+        <div class="ep-grid" id="epGrid"></div>
+      </div>
+    </div>
+  </div>
+
+  <script type="module">
+    import { getWishlistItem, updateWishlistItem, logActivity } from './js/firebase-service.js';
+
+    const q      = new URLSearchParams(location.search);
+    const itemId = q.get('id') || '';
+
+    const TMDB_BASE  = '/api/tmdb';
+    const JIKAN_BASE = 'https://api.jikan.moe/v4';
+    const PAGE_SIZE  = 50;
+
+    let item       = null;  // wishlist doc
+    let tmdbId     = null;
+    let curEp      = 1;
+    let curSeason  = 1;
+    let totalEps   = 0;
+    let epPage     = 0;  // current page index (0-based)
+    let srcMode    = 'primary';  // 'primary' | 'alt' | 'yt'
+    let iframeEl   = null;
+    let loadTimeout = null;
+
+    async function init() {
+      if (!itemId) { showError('No item ID supplied.'); return; }
+      try {
+        item = await getWishlistItem(itemId);
+      } catch(e) {
+        showError('Could not load this title.'); return;
+      }
+
+      // Populate header
+      document.getElementById('watchTitle').textContent = item.title || 'Untitled';
+      const typeLabel = item.type ? item.type.charAt(0).toUpperCase() + item.type.slice(1) : '';
+      document.getElementById('watchMeta').textContent = typeLabel + (item.genre ? ` · ${item.genre}` : '');
+
+      // Determine starting episode (current progress + 1, min 1)
+      curEp     = Math.max(1, (item.progress_current || 0) + 1);
+      if (item.status === 'completed' || item.progress_current === item.progress_total) curEp = 1;
+      totalEps  = item.progress_total || 0;
+      curSeason = 1;
+
+      updateMarkBtn();
+
+      // Season selector for TV/anime
+      const isMovie = item.type === 'movie';
+      if (!isMovie) {
+        buildSeasonSelect();
+      }
+
+      // Show episode grid if we know total
+      if (totalEps > 0 && !isMovie) {
+        buildEpGrid();
+      }
+
+      // Show main content
+      document.getElementById('loadingState').style.display  = 'none';
+      document.getElementById('mainContent').style.display   = '';
+
+      // Lookup TMDB ID then load player
+      setPlayerMsg('<i class="fa-solid fa-circle-notch fa-spin"></i>', 'Looking up video source…');
+      try {
+        tmdbId = await getTmdbId(item.title, item.type);
+      } catch(_) { tmdbId = null; }
+
+      if (tmdbId) {
+        loadEmbed('primary');
+      } else {
+        setPlayerMsg('<i class="fa-solid fa-triangle-exclamation"></i>', 'Could not find this title in the video database. Try YouTube Trailer below.');
+      }
+    }
+
+    // ── TMDB ID lookup ───────────────────────────────────
+    async function getTmdbId(title, type) {
+      const res  = await fetch(`${TMDB_BASE}?path=search/multi&query=${encodeURIComponent(title)}`);
+      if (!res.ok) throw new Error('TMDB error');
+      const data = await res.json();
+      const hit  = data.results?.[0];
+      return hit?.id ?? null;
+    }
+
+    // ── Embed URL builders ───────────────────────────────
+    function buildEmbedUrl(id, type, season, ep) {
+      if (!id) return null;
+      if (type === 'movie') return `https://vidsrc.to/embed/movie/${id}`;
+      return `https://vidsrc.to/embed/tv/${id}/${season}/${ep}`;
+    }
+
+    function buildAltUrl(id, type, season, ep) {
+      if (!id) return null;
+      if (type === 'movie') return `https://www.2embed.cc/embed/${id}`;
+      return `https://www.2embed.cc/embedtv/${id}&s=${season}&e=${ep}`;
+    }
+
+    // ── Load iframe ──────────────────────────────────────
+    function loadEmbed(mode) {
+      srcMode = mode;
+      let url = null;
+      if (mode === 'primary') url = buildEmbedUrl(tmdbId, item.type, curSeason, curEp);
+      if (mode === 'alt')     url = buildAltUrl(tmdbId, item.type, curSeason, curEp);
+
+      if (!url) {
+        setPlayerMsg('<i class="fa-solid fa-triangle-exclamation"></i>', 'No video source available for this title.');
+        return;
+      }
+
+      // Remove old iframe
+      if (iframeEl) iframeEl.remove();
+      clearTimeout(loadTimeout);
+      document.getElementById('playerMsg').style.display = 'none';
+
+      iframeEl = document.createElement('iframe');
+      iframeEl.src = url;
+      iframeEl.allowFullscreen = true;
+      iframeEl.allow = 'autoplay; encrypted-media; fullscreen; picture-in-picture';
+      iframeEl.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;border:none;';
+
+      // Fallback: if iframe doesn't load in 12s, show message
+      loadTimeout = setTimeout(() => {
+        if (iframeEl && iframeEl.parentNode) {
+          showFallbackHint();
+        }
+      }, 12000);
+
+      iframeEl.addEventListener('load', () => clearTimeout(loadTimeout));
+      document.getElementById('watchPlayer').appendChild(iframeEl);
+
+      // Update episode grid highlighting
+      if (totalEps > 0 && item.type !== 'movie') refreshEpGrid();
+    }
+
+    // ── YouTube Trailer ──────────────────────────────────
+    window.tryYouTube = async function() {
+      srcMode = 'yt';
+      setPlayerMsg('<i class="fa-solid fa-circle-notch fa-spin"></i>', 'Searching for trailer…');
+      if (iframeEl) { iframeEl.remove(); iframeEl = null; }
+
+      let ytId = null;
+      try {
+        // Try Jikan for anime
+        const res  = await fetch(`${JIKAN_BASE}/anime?q=${encodeURIComponent(item.title)}&limit=1`);
+        const data = await res.json();
+        ytId = data.data?.[0]?.trailer?.youtube_id || null;
+      } catch(_) {}
+
+      if (!ytId) {
+        // Try TMDB videos
+        if (tmdbId) {
+          try {
+            const mediaType = item.type === 'movie' ? 'movie' : 'tv';
+            const res  = await fetch(`${TMDB_BASE}?path=${mediaType}/${tmdbId}/videos`);
+            const data = await res.json();
+            const yt   = data.results?.find(v => v.site === 'YouTube' && v.type === 'Trailer');
+            ytId = yt?.key || null;
+          } catch(_) {}
+        }
+      }
+
+      if (!ytId) {
+        setPlayerMsg('<i class="fa-brands fa-youtube"></i>', 'No trailer found for this title.');
+        return;
+      }
+
+      if (iframeEl) iframeEl.remove();
+      document.getElementById('playerMsg').style.display = 'none';
+      iframeEl = document.createElement('iframe');
+      iframeEl.src = `https://www.youtube.com/embed/${ytId}?autoplay=1`;
+      iframeEl.allowFullscreen = true;
+      iframeEl.allow = 'autoplay; encrypted-media; fullscreen';
+      iframeEl.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;border:none;';
+      document.getElementById('watchPlayer').appendChild(iframeEl);
+    };
+
+    // ── Alternate source ─────────────────────────────────
+    window.tryAltSource = function() {
+      if (!tmdbId) { showFallbackHint(); return; }
+      loadEmbed(srcMode === 'alt' ? 'primary' : 'alt');
+      document.getElementById('btnAlt').innerHTML =
+        `<i class="fa-solid fa-rotate"></i> ${srcMode === 'alt' ? 'Use vidsrc.to' : 'Use 2embed'}`;
+    };
+
+    // ── Mark watched ─────────────────────────────────────
+    window.markWatched = async function() {
+      if (!item) return;
+      const isMovie = item.type === 'movie';
+      const newProg = isMovie ? (item.progress_total || 1) : curEp;
+      try {
+        await updateWishlistItem(itemId, { progress_current: newProg });
+        logActivity('progress', { itemId, itemTitle: item.title, itemType: item.type, coverPath: item.cover_path }).catch(() => {});
+        item.progress_current = newProg;
+
+        if (!isMovie) {
+          curEp = Math.min(curEp + 1, totalEps || curEp + 1);
+          updateMarkBtn();
+          if (tmdbId) loadEmbed(srcMode === 'yt' ? 'primary' : srcMode);
+          if (totalEps > 0) refreshEpGrid();
+        } else {
+          document.getElementById('btnMark').innerHTML = '<i class="fa-solid fa-check-double"></i> Marked!';
+          document.getElementById('btnMark').disabled = true;
+        }
+      } catch(e) {
+        console.error(e);
+      }
+    };
+
+    function updateMarkBtn() {
+      const isMovie = item.type === 'movie';
+      const lbl = document.getElementById('btnMarkLabel');
+      if (isMovie) {
+        lbl.textContent = 'Mark Watched';
+      } else {
+        lbl.textContent = `Mark Ep ${curEp} Watched`;
+      }
+    }
+
+    // ── Season select ─────────────────────────────────────
+    function buildSeasonSelect() {
+      const sel = document.getElementById('seasonSelect');
+      // default up to 5 seasons; could be fetched from TMDB if needed
+      for (let i = 1; i <= 5; i++) {
+        const opt = document.createElement('option');
+        opt.value = i;
+        opt.textContent = `Season ${i}`;
+        sel.appendChild(opt);
+      }
+      sel.style.display = '';
+    }
+
+    window.onSeasonChange = function() {
+      curSeason = parseInt(document.getElementById('seasonSelect').value) || 1;
+      curEp = 1;
+      updateMarkBtn();
+      if (tmdbId && srcMode !== 'yt') loadEmbed(srcMode);
+    };
+
+    // ── Episode grid ─────────────────────────────────────
+    function buildEpGrid() {
+      const sec = document.getElementById('epSection');
+      sec.style.display = '';
+      buildEpPageBtns();
+      renderEpPage(0);
+    }
+
+    function buildEpPageBtns() {
+      const container = document.getElementById('epPageBtns');
+      container.innerHTML = '';
+      const pages = Math.ceil(totalEps / PAGE_SIZE);
+      if (pages <= 1) return;
+      for (let i = 0; i < pages; i++) {
+        const btn = document.createElement('button');
+        btn.className = 'ep-page-btn' + (i === 0 ? ' active' : '');
+        const start = i * PAGE_SIZE + 1;
+        const end   = Math.min((i + 1) * PAGE_SIZE, totalEps);
+        btn.textContent = `${start}–${end}`;
+        btn.addEventListener('click', () => {
+          document.querySelectorAll('.ep-page-btn').forEach(b => b.classList.remove('active'));
+          btn.classList.add('active');
+          epPage = i;
+          renderEpPage(i);
+        });
+        container.appendChild(btn);
+      }
+    }
+
+    function renderEpPage(pageIdx) {
+      epPage = pageIdx;
+      const grid  = document.getElementById('epGrid');
+      grid.innerHTML = '';
+      const start = pageIdx * PAGE_SIZE + 1;
+      const end   = Math.min((pageIdx + 1) * PAGE_SIZE, totalEps);
+      const watched = item.progress_current || 0;
+
+      for (let ep = start; ep <= end; ep++) {
+        const btn = document.createElement('button');
+        btn.className = 'ep-btn' +
+          (ep === curEp    ? ' current' : '') +
+          (ep < curEp && ep <= watched ? ' watched' : '');
+        btn.textContent = ep;
+        const epNum = ep;
+        btn.addEventListener('click', () => {
+          curEp = epNum;
+          updateMarkBtn();
+          if (tmdbId && srcMode !== 'yt') loadEmbed(srcMode);
+          refreshEpGrid();
+        });
+        grid.appendChild(btn);
+      }
+    }
+
+    function refreshEpGrid() {
+      // Just re-render the current page
+      renderEpPage(epPage);
+    }
+
+    // ── Helpers ───────────────────────────────────────────
+    function setPlayerMsg(iconHtml, text) {
+      const msg = document.getElementById('playerMsg');
+      msg.style.display = 'flex';
+      msg.innerHTML = `<div style="font-size:28px;color:#333;">${iconHtml}</div><div id="playerMsgText">${text}</div>`;
+      if (iframeEl) { iframeEl.remove(); iframeEl = null; }
+    }
+
+    function showFallbackHint() {
+      setPlayerMsg(
+        '<i class="fa-solid fa-triangle-exclamation" style="color:#cc6600;"></i>',
+        'Video source unavailable or blocked. Try "Try Alternate Source" or "YouTube Trailer" below.'
+      );
+    }
+
+    function showError(msg) {
+      document.getElementById('loadingState').innerHTML =
+        `<div style="color:#c00;padding:20px;font-size:12px;">${msg}</div>`;
+    }
+
+    // Boot
+    init();
+  </script>
+</body>
+</html>

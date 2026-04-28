@@ -1,0 +1,403 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Platform — E-Library</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link href="css/site.css" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Bungee&display=swap" rel="stylesheet" />
+  <script src="https://kit.fontawesome.com/3c6e6d7c17.js" crossorigin="anonymous"></script>
+  <style>
+    :root{ --bg:#000; --accent:#ff000086; --text:#fff; }
+    body{ margin:0; background:var(--bg); color:var(--text); font-family:"Bungee",Arial,sans-serif; min-height:100vh; }
+
+    /* toolbar */
+    .toolbar{
+      display:flex; align-items:center; flex-wrap:wrap; gap:12px;
+      padding:14px 22px; background:#050505;
+      border-bottom:1px solid rgba(255,0,0,.12);
+      position:sticky; top:60px; z-index:60;
+    }
+    .toolbar-title{ font-size:18px; flex:1; min-width:160px; }
+
+    /* wrap */
+    .wrap{ padding:22px; max-width:1200px; margin:0 auto; }
+
+    /* Sources sub-section — reuse .p-grid / .p-card from platforms.html look */
+    .src-grid{
+      display:grid; gap:14px;
+      grid-template-columns:repeat(auto-fill,minmax(150px,1fr));
+    }
+    .src-card{
+      background:#111; border:1px solid #1e1e1e; border-radius:16px;
+      padding:16px 12px 12px; text-align:center; position:relative;
+      transition:transform .18s, box-shadow .2s, border-color .2s;
+      display:flex; flex-direction:column; align-items:center; gap:6px;
+    }
+    .src-card:hover{
+      transform:translateY(-3px);
+      box-shadow:0 0 22px rgba(255,0,0,.2), 0 0 0 1px rgba(255,0,0,.15);
+      border-color:rgba(255,0,0,.2);
+    }
+    .src-icon{
+      width:62px; height:62px; border-radius:50%; object-fit:cover;
+      background:#0f0f0f; display:block; border:2px solid rgba(255,0,0,.2);
+      margin:4px auto 6px;
+    }
+    .src-name{ font-size:12px; line-height:1.3; margin-bottom:2px; }
+    .src-tags{ display:flex; flex-wrap:wrap; gap:5px; justify-content:center; margin-top:4px; }
+    .src-tag{
+      padding:3px 8px; border-radius:999px; font-size:9px; border:1px solid;
+      white-space:nowrap;
+    }
+    .src-visit-btn{
+      display:flex; align-items:center; justify-content:center; gap:5px;
+      width:100%; margin-top:6px; padding:6px 0; border-radius:9px; border:none;
+      background:#cc0000; color:#fff; font-family:"Bungee",Arial,sans-serif;
+      font-size:10px; cursor:pointer; transition:background .15s;
+    }
+    .src-visit-btn:hover{ background:#e00; }
+    .src-status{
+      position:absolute; top:9px; left:9px;
+      width:8px; height:8px; border-radius:50%; background:#333; border:1px solid #444;
+    }
+    .src-status.online { background:#4caf50; border-color:#388e3c; box-shadow:0 0 5px #4caf5088; }
+    .src-status.offline{ background:#f44336; border-color:#c62828; }
+
+    .src-empty{
+      grid-column:1/-1; text-align:center; padding:30px; color:#444; font-size:12px;
+    }
+
+    /* source sub-tabs */
+    .src-subtabs{ display:flex; gap:6px; margin-bottom:16px; }
+    .src-subtab{
+      padding:5px 14px; border-radius:8px; border:1px solid #222;
+      background:transparent; color:#555; font-family:"Bungee",Arial,sans-serif;
+      font-size:11px; cursor:pointer; transition:all .15s;
+    }
+    .src-subtab:hover{ color:#ccc; border-color:#444; }
+    .src-subtab.active{ background:rgba(255,0,0,.15); border-color:rgba(255,0,0,.35); color:#fff; }
+
+    /* loading skeleton */
+    .skel-shelf{ display:flex; gap:12px; margin-bottom:36px; }
+    .skel-card{
+      flex:0 0 130px; border-radius:10px; background:#111; overflow:hidden;
+    }
+    .skel-img{
+      width:130px; height:180px;
+      background:linear-gradient(90deg,#1a1a1a 25%,#252525 50%,#1a1a1a 75%);
+      background-size:200% 100%; animation:shimmer 1.4s infinite;
+    }
+    .skel-line{
+      height:10px; border-radius:5px; margin:8px 8px 4px;
+      background:linear-gradient(90deg,#1a1a1a 25%,#252525 50%,#1a1a1a 75%);
+      background-size:200% 100%; animation:shimmer 1.4s infinite;
+    }
+    @keyframes shimmer{ 0%{background-position:200% 0} 100%{background-position:-200% 0} }
+  </style>
+</head>
+<body>
+  <script type="module" src="js/auth-guard.js"></script>
+
+  <nav id="app-nav"></nav>
+  <script src="js/nav.js" defer></script>
+
+  <!-- Toolbar -->
+  <div class="toolbar">
+    <span class="toolbar-title"><i class="fa-solid fa-circle-play" style="color:#cc0000;margin-right:8px;"></i>Platform</span>
+  </div>
+
+  <!-- Main content -->
+  <div class="wrap">
+    <!-- Top-level tab pills -->
+    <div class="plat-tabs" id="platTabs">
+      <button class="plat-tab active" data-tab="streaming">
+        <i class="fa-solid fa-tv"></i> Streaming
+      </button>
+      <button class="plat-tab" data-tab="reading">
+        <i class="fa-solid fa-book-open"></i> Reading
+      </button>
+      <button class="plat-tab" data-tab="sources">
+        <i class="fa-solid fa-link"></i> Sources
+      </button>
+    </div>
+
+    <!-- ── Streaming tab ──────────────────────────────── -->
+    <div id="tab-streaming">
+      <div id="streamContent">
+        <!-- skeleton -->
+        <div class="skel-shelf">
+          <div class="skel-card"><div class="skel-img"></div><div class="skel-line"></div><div class="skel-line" style="width:50%;margin:0 8px 8px;"></div></div>
+          <div class="skel-card"><div class="skel-img"></div><div class="skel-line"></div><div class="skel-line" style="width:50%;margin:0 8px 8px;"></div></div>
+          <div class="skel-card"><div class="skel-img"></div><div class="skel-line"></div><div class="skel-line" style="width:50%;margin:0 8px 8px;"></div></div>
+          <div class="skel-card"><div class="skel-img"></div><div class="skel-line"></div><div class="skel-line" style="width:50%;margin:0 8px 8px;"></div></div>
+          <div class="skel-card"><div class="skel-img"></div><div class="skel-line"></div><div class="skel-line" style="width:50%;margin:0 8px 8px;"></div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Reading tab ────────────────────────────────── -->
+    <div id="tab-reading" style="display:none;">
+      <div id="readContent">
+        <div class="skel-shelf">
+          <div class="skel-card"><div class="skel-img"></div><div class="skel-line"></div><div class="skel-line" style="width:50%;margin:0 8px 8px;"></div></div>
+          <div class="skel-card"><div class="skel-img"></div><div class="skel-line"></div><div class="skel-line" style="width:50%;margin:0 8px 8px;"></div></div>
+          <div class="skel-card"><div class="skel-img"></div><div class="skel-line"></div><div class="skel-line" style="width:50%;margin:0 8px 8px;"></div></div>
+          <div class="skel-card"><div class="skel-img"></div><div class="skel-line"></div><div class="skel-line" style="width:50%;margin:0 8px 8px;"></div></div>
+          <div class="skel-card"><div class="skel-img"></div><div class="skel-line"></div><div class="skel-line" style="width:50%;margin:0 8px 8px;"></div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Sources tab ────────────────────────────────── -->
+    <div id="tab-sources" style="display:none;">
+      <div class="src-subtabs" id="srcSubtabs">
+        <button class="src-subtab active" data-src="streaming">Streaming Platforms</button>
+        <button class="src-subtab" data-src="webtoon">Reading Platforms</button>
+      </div>
+      <div id="srcGrid" class="src-grid">
+        <div class="src-empty"><i class="fa-solid fa-circle-notch fa-spin"></i></div>
+      </div>
+    </div>
+  </div>
+
+  <script type="module">
+    import { getWishlist, getPlatforms, recordPlatformVisit } from './js/firebase-service.js';
+
+    const STREAMING_TYPES = ['anime','movie','tv-show'];
+    const READING_TYPES   = ['manga','manhwa','manhua','novel'];
+
+    const STATUS_GROUPS = [
+      { key:'watching',  label:'Continue Watching',  icon:'fa-play'          },
+      { key:'reading',   label:'Currently Reading',  icon:'fa-book-open'     },
+      { key:'planning',  label:'Plan to Watch',      icon:'fa-clock'         },
+      { key:'on_hold',   label:'On Hold',            icon:'fa-pause'         },
+      { key:'completed', label:'Completed',          icon:'fa-check'         },
+      { key:'dropped',   label:'Dropped',            icon:'fa-xmark'         },
+    ];
+
+    // ── Tab switching ────────────────────────────────────
+    const platTabs = document.querySelectorAll('.plat-tab');
+    platTabs.forEach(btn => {
+      btn.addEventListener('click', () => {
+        platTabs.forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        const tab = btn.dataset.tab;
+        document.getElementById('tab-streaming').style.display = tab === 'streaming' ? '' : 'none';
+        document.getElementById('tab-reading').style.display   = tab === 'reading'   ? '' : 'none';
+        document.getElementById('tab-sources').style.display   = tab === 'sources'   ? '' : 'none';
+        if (tab === 'sources' && !srcLoaded) loadSources('streaming');
+      });
+    });
+
+    // ── Source sub-tab switching ─────────────────────────
+    document.querySelectorAll('.src-subtab').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.src-subtab').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        loadSources(btn.dataset.src);
+      });
+    });
+
+    // ── Cover fallback helper ────────────────────────────
+    function coverImg(src, alt) {
+      const img = document.createElement('img');
+      img.src = src || '';
+      img.alt = alt;
+      img.loading = 'lazy';
+      img.onerror = () => {
+        img.style.background = '#111';
+        img.style.display = 'block';
+        img.removeAttribute('src');
+      };
+      return img;
+    }
+
+    // ── Progress label ───────────────────────────────────
+    function progLabel(item) {
+      if (item.progress_current == null && item.progress_total == null) return '';
+      const isAnime = STREAMING_TYPES.includes(item.type);
+      const unit = isAnime ? 'Ep' : 'Ch';
+      const cur  = item.progress_current ?? '?';
+      const tot  = item.progress_total   ? `/${item.progress_total}` : '';
+      return `${unit} ${cur}${tot}`;
+    }
+
+    // ── Build shelf card ─────────────────────────────────
+    function makeCard(item, isStream) {
+      const card = document.createElement('div');
+      card.className = 'shelf-card';
+
+      const img = coverImg(item.cover_path, item.title);
+      card.appendChild(img);
+
+      const body = document.createElement('div');
+      body.className = 'shelf-card-body';
+
+      const titleEl = document.createElement('div');
+      titleEl.className = 'shelf-card-title';
+      titleEl.textContent = item.title || 'Untitled';
+      body.appendChild(titleEl);
+
+      const prog = progLabel(item);
+      if (prog) {
+        const progEl = document.createElement('div');
+        progEl.className = 'shelf-card-prog';
+        progEl.textContent = prog;
+        body.appendChild(progEl);
+      }
+
+      if (isStream) {
+        const btn = document.createElement('button');
+        btn.className = 'shelf-watch-btn';
+        btn.innerHTML = '<i class="fa-solid fa-play"></i> Watch';
+        btn.addEventListener('click', e => {
+          e.stopPropagation();
+          location.href = `watch.html?id=${item.id}`;
+        });
+        body.appendChild(btn);
+      } else {
+        const btn = document.createElement('a');
+        btn.className = 'shelf-read-btn';
+        btn.href = item.site_url || '#';
+        btn.target = '_blank';
+        btn.rel = 'noopener';
+        btn.innerHTML = '<i class="fa-solid fa-book-open"></i> Read';
+        body.appendChild(btn);
+      }
+
+      card.appendChild(body);
+      card.addEventListener('click', () => location.href = `detail.html?id=${item.id}`);
+      return card;
+    }
+
+    // ── Render shelf rows ────────────────────────────────
+    function renderShelf(containerId, items, isStream) {
+      const container = document.getElementById(containerId);
+      container.innerHTML = '';
+
+      const groups = STATUS_GROUPS.filter(g =>
+        isStream
+          ? ['watching','planning','on_hold','completed','dropped'].includes(g.key)
+          : ['reading','planning','on_hold','completed','dropped'].includes(g.key)
+      );
+
+      let anyContent = false;
+      groups.forEach(g => {
+        const subset = items.filter(i => i.status === g.key);
+        if (!subset.length) return;
+        anyContent = true;
+
+        const section = document.createElement('div');
+        section.className = 'shelf-section';
+
+        const label = document.createElement('div');
+        label.className = 'shelf-label';
+        label.innerHTML = `<i class="fa-solid ${g.icon}"></i> ${g.label} <span style="color:#333;font-size:10px;">(${subset.length})</span>`;
+        section.appendChild(label);
+
+        const row = document.createElement('div');
+        row.className = 'shelf-row';
+        subset.forEach(item => row.appendChild(makeCard(item, isStream)));
+        section.appendChild(row);
+        container.appendChild(section);
+      });
+
+      if (!anyContent) {
+        container.innerHTML = '<div style="text-align:center;padding:40px;color:#333;font-size:12px;">Nothing here yet — add titles from Explore!</div>';
+      }
+    }
+
+    // ── Load main wishlist ────────────────────────────────
+    async function loadWishlist() {
+      try {
+        const items = await getWishlist();
+        const streamItems = items.filter(i => STREAMING_TYPES.includes(i.type));
+        const readItems   = items.filter(i => READING_TYPES.includes(i.type));
+        renderShelf('streamContent', streamItems, true);
+        renderShelf('readContent',   readItems,   false);
+      } catch (e) {
+        console.error(e);
+        document.getElementById('streamContent').innerHTML = '<div style="color:#c00;font-size:12px;padding:20px;">Error loading library.</div>';
+      }
+    }
+
+    // ── Source bookmarks ─────────────────────────────────
+    let srcLoaded = false;
+    const TAG_COLORS = {
+      Free:     { bg:'rgba(76,175,80,.15)',  border:'rgba(76,175,80,.35)',  color:'#81c784' },
+      Premium:  { bg:'rgba(255,193,7,.12)',  border:'rgba(255,193,7,.35)',  color:'#ffd54f' },
+      Sub:      { bg:'rgba(33,150,243,.12)', border:'rgba(33,150,243,.35)', color:'#64b5f6' },
+      Dub:      { bg:'rgba(156,39,176,.12)', border:'rgba(156,39,176,.35)', color:'#ce93d8' },
+      Official: { bg:'rgba(255,0,0,.12)',    border:'rgba(255,0,0,.35)',    color:'#ef9a9a' },
+      'Fan-TL': { bg:'rgba(255,152,0,.12)',  border:'rgba(255,152,0,.35)',  color:'#ffcc80' },
+    };
+
+    async function loadSources(type) {
+      srcLoaded = true;
+      const grid = document.getElementById('srcGrid');
+      grid.innerHTML = '<div class="src-empty"><i class="fa-solid fa-circle-notch fa-spin"></i></div>';
+      try {
+        const platforms = await getPlatforms(type);
+        grid.innerHTML = '';
+        if (!platforms.length) {
+          grid.innerHTML = `<div class="src-empty">No platforms yet — <a href="add_platform.html" style="color:#cc0000;">add one</a>.</div>`;
+          return;
+        }
+        platforms.forEach(p => {
+          const card = document.createElement('div');
+          card.className = 'src-card';
+
+          const statusDot = document.createElement('div');
+          statusDot.className = 'src-status';
+          card.appendChild(statusDot);
+
+          const icon = document.createElement('img');
+          icon.className = 'src-icon';
+          icon.src = p.icon_path || '';
+          icon.alt = p.name;
+          icon.onerror = () => { icon.style.display='none'; };
+          card.appendChild(icon);
+
+          const name = document.createElement('div');
+          name.className = 'src-name';
+          name.textContent = p.name;
+          card.appendChild(name);
+
+          if (p.tags?.length) {
+            const tagsEl = document.createElement('div');
+            tagsEl.className = 'src-tags';
+            p.tags.forEach(t => {
+              const c = TAG_COLORS[t] || { bg:'#1a1a1a', border:'#333', color:'#888' };
+              const tag = document.createElement('span');
+              tag.className = 'src-tag';
+              tag.textContent = t;
+              tag.style.background = c.bg;
+              tag.style.borderColor = c.border;
+              tag.style.color = c.color;
+              tagsEl.appendChild(tag);
+            });
+            card.appendChild(tagsEl);
+          }
+
+          const visitBtn = document.createElement('button');
+          visitBtn.className = 'src-visit-btn';
+          visitBtn.innerHTML = '<i class="fa-solid fa-arrow-up-right-from-square"></i> Visit';
+          visitBtn.addEventListener('click', () => {
+            recordPlatformVisit(p.id).catch(() => {});
+            window.open(p.url, '_blank', 'noopener');
+          });
+          card.appendChild(visitBtn);
+
+          grid.appendChild(card);
+        });
+      } catch(e) {
+        grid.innerHTML = '<div class="src-empty" style="color:#c00;">Error loading platforms.</div>';
+      }
+    }
+
+    // Boot
+    loadWishlist();
+  </script>
+</body>
+</html>
