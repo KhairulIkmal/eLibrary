@@ -572,7 +572,8 @@
       const desc  = attr.description?.en || Object.values(attr.description||{})[0] || '';
       const coverRel = (it.relationships||[]).find(r=>r.type==='cover_art');
       const fileName = coverRel?.attributes?.fileName || '';
-      const cover = fileName ? `https://uploads.mangadex.org/covers/${it.id}/${fileName}.512.jpg` : '';
+      const coverUrl = fileName ? `https://uploads.mangadex.org/covers/${it.id}/${fileName}.512.jpg` : '';
+      const cover    = coverUrl ? `/api/mangadex-image?url=${encodeURIComponent(coverUrl)}` : '';
       const genres = (attr.tags||[]).filter(t=>t.attributes?.group==='genre').map(t=>t.attributes?.name?.en||'');
       const libTypeMap = { manhwa:'manhwa', manhua:'manhua', manga:'manga' };
       return {
