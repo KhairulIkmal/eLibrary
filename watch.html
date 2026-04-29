@@ -42,14 +42,21 @@
         </div>
       </div>
 
+      <!-- Server bar -->
+      <div class="watch-server-bar" id="serverBar">
+        <div class="watch-server-msg" id="serverMsg">
+          If current server doesn't work, try another server.
+        </div>
+        <div class="watch-server-btns">
+          <span class="watch-server-label">SERVER:</span>
+          <button class="watch-srv-btn active" id="srv1" onclick="switchServer(1)">Server 1</button>
+          <button class="watch-srv-btn"        id="srv2" onclick="switchServer(2)">Server 2</button>
+          <button class="watch-srv-btn"        id="srvYT" onclick="tryYouTube()"><i class="fa-brands fa-youtube"></i> Trailer</button>
+        </div>
+      </div>
+
       <!-- Controls -->
-      <div class="watch-controls" id="watchControls" style="margin-top:14px;flex-wrap:wrap;gap:8px;display:flex;align-items:center;">
-        <button class="watch-ctrl-btn" id="btnAlt" onclick="tryAltSource()">
-          <i class="fa-solid fa-rotate"></i> Try Alternate Source
-        </button>
-        <button class="watch-ctrl-btn" id="btnYT" onclick="tryYouTube()">
-          <i class="fa-brands fa-youtube"></i> YouTube Trailer
-        </button>
+      <div class="watch-controls" id="watchControls" style="margin-top:12px;flex-wrap:wrap;gap:8px;display:flex;align-items:center;">
         <button class="watch-ctrl-btn primary" id="btnMark" onclick="markWatched()">
           <i class="fa-solid fa-check"></i> <span id="btnMarkLabel">Mark Watched</span>
         </button>
@@ -62,6 +69,11 @@
         <div class="ep-section-title">Episodes</div>
         <div class="ep-page-btns" id="epPageBtns"></div>
         <div class="ep-grid" id="epGrid"></div>
+        <div class="ep-nav" id="epNav">
+          <button class="ep-nav-btn" id="btnPrev" onclick="goPrevEp()"><i class="fa-solid fa-chevron-left"></i> Prev</button>
+          <button class="ep-nav-btn all" onclick="scrollToEpGrid()"><i class="fa-solid fa-list"></i> All Episodes</button>
+          <button class="ep-nav-btn" id="btnNext" onclick="goNextEp()">Next <i class="fa-solid fa-chevron-right"></i></button>
+        </div>
       </div>
     </div>
   </div>
@@ -121,6 +133,8 @@
       // Show main content
       document.getElementById('loadingState').style.display  = 'none';
       document.getElementById('mainContent').style.display   = '';
+      updateServerMsg();
+      updatePrevNextBtns();
 
       // Lookup TMDB ID then load player
       setPlayerMsg('<i class="fa-solid fa-circle-notch fa-spin"></i>', 'Looking up video source…');
@@ -274,12 +288,12 @@
       document.getElementById('watchPlayer').appendChild(iframeEl);
     };
 
-    // ── Alternate source ─────────────────────────────────
-    window.tryAltSource = function() {
+    // ── Server switcher ──────────────────────────────────
+    window.switchServer = function(num) {
       if (!tmdbId) { showFallbackHint(); return; }
-      loadEmbed(srcMode === 'alt' ? 'primary' : 'alt');
-      document.getElementById('btnAlt').innerHTML =
-        `<i class="fa-solid fa-rotate"></i> ${srcMode === 'alt' ? 'Use vidsrc.to' : 'Use 2embed'}`;
+      document.querySelectorAll('.watch-srv-btn').forEach(b => b.classList.remove('active'));
+      if (num === 1) { document.getElementById('srv1').classList.add('active'); loadEmbed('primary'); }
+      if (num === 2) { document.getElementById('srv2').classList.add('active'); loadEmbed('alt'); }
     };
 
     // ── Mark watched ─────────────────────────────────────
@@ -295,6 +309,8 @@
         if (!isMovie) {
           curEp = Math.min(curEp + 1, totalEps || curEp + 1);
           updateMarkBtn();
+          updateServerMsg();
+          updatePrevNextBtns();
           if (tmdbId) loadEmbed(srcMode === 'yt' ? 'primary' : srcMode);
           if (totalEps > 0) refreshEpGrid();
         } else {
@@ -314,6 +330,65 @@
       } else {
         lbl.textContent = `Mark Ep ${curEp} Watched`;
       }
+    }
+
+    function updateServerMsg() {
+      const isMovie = item.type === 'movie';
+      const msg = document.getElementById('serverMsg');
+      if (msg) {
+        msg.innerHTML = isMovie
+          ? `You are watching <span>${item.title || 'this title'}</span>. If current server doesn't work, try another below.`
+          : `You are watching <span>Episode ${curEp}</span>. If current server doesn't work, try another below.`;
+      }
+    }
+
+    // ── Prev / Next episode ───────────────────────────────
+    window.goPrevEp = function() {
+      if (curEp <= 1) return;
+      curEp--;
+      updateMarkBtn();
+      updateServerMsg();
+      updatePrevNextBtns();
+      if (tmdbId && srcMode !== 'yt') loadEmbed(srcMode);
+      if (totalEps > 0) {
+        // Switch page if needed
+        const pageIdx = Math.floor((curEp - 1) / PAGE_SIZE);
+        if (pageIdx !== epPage) {
+          epPage = pageIdx;
+          document.querySelectorAll('.ep-page-btn').forEach((b, i) => b.classList.toggle('active', i === pageIdx));
+        }
+        refreshEpGrid();
+      }
+    };
+
+    window.goNextEp = function() {
+      const maxEp = totalEps || curEp;
+      if (curEp >= maxEp) return;
+      curEp++;
+      updateMarkBtn();
+      updateServerMsg();
+      updatePrevNextBtns();
+      if (tmdbId && srcMode !== 'yt') loadEmbed(srcMode);
+      if (totalEps > 0) {
+        const pageIdx = Math.floor((curEp - 1) / PAGE_SIZE);
+        if (pageIdx !== epPage) {
+          epPage = pageIdx;
+          document.querySelectorAll('.ep-page-btn').forEach((b, i) => b.classList.toggle('active', i === pageIdx));
+        }
+        refreshEpGrid();
+      }
+    };
+
+    window.scrollToEpGrid = function() {
+      document.getElementById('epSection')?.scrollIntoView({ behavior:'smooth', block:'start' });
+    };
+
+    function updatePrevNextBtns() {
+      const maxEp = totalEps || curEp;
+      const prev = document.getElementById('btnPrev');
+      const next = document.getElementById('btnNext');
+      if (prev) prev.disabled = curEp <= 1;
+      if (next) next.disabled = curEp >= maxEp;
     }
 
     // ── Season select ─────────────────────────────────────
@@ -367,22 +442,25 @@
 
     function renderEpPage(pageIdx) {
       epPage = pageIdx;
-      const grid  = document.getElementById('epGrid');
+      const grid   = document.getElementById('epGrid');
       grid.innerHTML = '';
-      const start = pageIdx * PAGE_SIZE + 1;
-      const end   = Math.min((pageIdx + 1) * PAGE_SIZE, totalEps);
+      const start   = pageIdx * PAGE_SIZE + 1;
+      const end     = Math.min((pageIdx + 1) * PAGE_SIZE, totalEps);
       const watched = item.progress_current || 0;
 
-      for (let ep = start; ep <= end; ep++) {
+      // Render descending (newest first within the page range)
+      for (let ep = end; ep >= start; ep--) {
         const btn = document.createElement('button');
         btn.className = 'ep-btn' +
-          (ep === curEp    ? ' current' : '') +
-          (ep < curEp && ep <= watched ? ' watched' : '');
+          (ep === curEp          ? ' current' : '') +
+          (ep <= watched && ep !== curEp ? ' watched' : '');
         btn.textContent = ep;
         const epNum = ep;
         btn.addEventListener('click', () => {
           curEp = epNum;
           updateMarkBtn();
+          updateServerMsg();
+          updatePrevNextBtns();
           if (tmdbId && srcMode !== 'yt') loadEmbed(srcMode);
           refreshEpGrid();
         });
