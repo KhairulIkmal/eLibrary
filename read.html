@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Read — E-Library</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link href="css/site.css" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Bungee&display=swap" rel="stylesheet" />
+  <script src="https://kit.fontawesome.com/3c6e6d7c17.js" crossorigin="anonymous"></script>
+  <style>
+    :root{ --bg:#000; --accent:#ff000086; --text:#fff; }
+    body{ margin:0; background:var(--bg); color:var(--text); font-family:"Bungee",Arial,sans-serif; min-height:100vh; }
+
+    .read-wrap{ max-width:860px; margin:0 auto; padding:20px 18px 60px; }
+
+    /* ── Hero ─────────────────────────────────────────── */
+    .read-hero{
+      display:grid; grid-template-columns:130px 1fr; gap:20px;
+      align-items:start; margin-bottom:24px;
+    }
+    @media(max-width:500px){ .read-hero{ grid-template-columns:1fr; } }
+    .read-cover{
+      width:100%; aspect-ratio:3/4; object-fit:cover; border-radius:12px;
+      border:1px solid rgba(255,255,255,.07); display:block;
+      box-shadow:0 8px 28px rgba(0,0,0,.7);
+    }
+    .read-info{ display:flex; flex-direction:column; gap:10px; padding-top:2px; }
+    .read-title{ font-size:clamp(16px,3.5vw,24px); line-height:1.2; margin:0; }
+    .read-chips{ display:flex; flex-wrap:wrap; gap:7px; }
+    .read-chip{
+      padding:4px 11px; border-radius:999px; font-size:10px;
+      background:#181818; border:1px solid #2a2a2a; color:#ccc;
+    }
+    .read-chip.type{ background:rgba(33,150,243,.12); border-color:rgba(33,150,243,.3); color:#64b5f6; }
+    .read-chip.status{ background:#111; border-color:#333; color:#aaa; }
+
+    /* ── Progress card ─────────────────────────────────── */
+    .prog-card{
+      background:#0d0d0d; border:1px solid #1a1a1a; border-radius:14px;
+      padding:18px 20px; margin-bottom:22px;
+    }
+    .prog-card-title{ font-size:11px; color:#555; letter-spacing:.08em; text-transform:uppercase; margin-bottom:14px; }
+    .prog-row{ display:flex; align-items:center; gap:12px; flex-wrap:wrap; }
+    .prog-input{
+      width:90px; padding:8px 12px; border-radius:10px; border:1px solid #222;
+      background:#121212; color:#fff; font-family:"Bungee",Arial,sans-serif;
+      font-size:13px; outline:none; transition:border-color .15s; text-align:center;
+    }
+    .prog-input:focus{ border-color:rgba(255,0,0,.4); }
+    .prog-sep{ color:#333; font-size:14px; }
+    .prog-total{ font-size:12px; color:#444; }
+    .prog-bar-wrap{ margin-top:12px; }
+    .prog-bar-track{
+      height:6px; background:#1a1a1a; border-radius:999px; overflow:hidden;
+    }
+    .prog-bar-fill{
+      height:100%; background:linear-gradient(90deg,#2196f3,#64b5f6);
+      border-radius:999px; transition:width .4s;
+    }
+    .prog-bar-label{ font-size:10px; color:#555; margin-top:4px; }
+
+    /* ── Action buttons ────────────────────────────────── */
+    .read-actions{ display:flex; gap:10px; flex-wrap:wrap; margin-top:14px; }
+    .read-act-btn{
+      display:inline-flex; align-items:center; gap:7px;
+      padding:9px 18px; border-radius:11px; border:1px solid #333;
+      background:#1a1a1a; color:#bbb; font-family:"Bungee",Arial,sans-serif;
+      font-size:11px; cursor:pointer; transition:all .15s;
+    }
+    .read-act-btn:hover{ color:#fff; border-color:#555; }
+    .read-act-btn.primary{
+      background:rgba(33,150,243,.15); border-color:rgba(33,150,243,.4);
+      color:#64b5f6;
+    }
+    .read-act-btn.primary:hover{ background:rgba(33,150,243,.25); }
+    .read-act-btn.success{
+      background:rgba(76,175,80,.15); border-color:rgba(76,175,80,.4); color:#81c784;
+    }
+    .read-act-btn.success:hover{ background:rgba(76,175,80,.25); }
+    .read-act-btn:disabled{ opacity:.4; cursor:not-allowed; }
+
+    /* ── Sources ───────────────────────────────────────── */
+    .sec-title{
+      font-size:11px; color:#555; letter-spacing:.08em; text-transform:uppercase;
+      margin:0 0 12px; padding-bottom:8px; border-bottom:1px solid #1a1a1a;
+    }
+    .sources-list{ display:flex; flex-direction:column; gap:10px; margin-bottom:28px; }
+    .source-card{
+      display:flex; align-items:center; gap:14px;
+      background:#0d0d0d; border:1px solid #1a1a1a; border-radius:12px;
+      padding:14px 16px; transition:border-color .15s, background .15s;
+    }
+    .source-card:hover{ background:#111; border-color:rgba(33,150,243,.3); }
+    .source-icon{
+      width:38px; height:38px; border-radius:9px; object-fit:cover;
+      background:#111; border:1px solid #222; flex-shrink:0;
+    }
+    .source-info{ flex:1; min-width:0; }
+    .source-name{ font-size:13px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .source-meta{ font-size:10px; color:#555; margin-top:2px; }
+    .source-tags{ display:flex; gap:5px; margin-top:5px; flex-wrap:wrap; }
+    .source-tag{
+      padding:2px 8px; border-radius:999px; font-size:9px; border:1px solid;
+    }
+    .source-visit-btn{
+      display:inline-flex; align-items:center; gap:6px; flex-shrink:0;
+      padding:7px 14px; border-radius:9px; border:1px solid rgba(33,150,243,.35);
+      background:rgba(33,150,243,.1); color:#64b5f6;
+      font-family:"Bungee",Arial,sans-serif; font-size:10px;
+      cursor:pointer; transition:all .15s; text-decoration:none;
+    }
+    .source-visit-btn:hover{ background:rgba(33,150,243,.2); color:#90caf9; }
+
+    /* empty state */
+    .sources-empty{
+      text-align:center; padding:32px; color:#333; font-size:12px;
+      border:1px dashed #1a1a1a; border-radius:12px;
+    }
+
+    /* notes */
+    .notes-box{
+      background:#0d0d0d; border:1px solid #1a1a1a; border-radius:12px;
+      padding:14px 16px; font-size:12px; color:#888; line-height:1.6;
+      white-space:pre-wrap; margin-bottom:24px;
+    }
+  </style>
+</head>
+<body>
+  <script type="module" src="js/auth-guard.js"></script>
+  <nav id="app-nav"></nav>
+  <script src="js/nav.js" defer></script>
+
+  <div class="read-wrap">
+    <div id="loadingState" style="text-align:center;padding:60px 0;color:#444;font-size:13px;">
+      <i class="fa-solid fa-circle-notch fa-spin" style="font-size:28px;color:#333;margin-bottom:12px;display:block;"></i>
+      Loading...
+    </div>
+
+    <div id="mainContent" style="display:none;">
+      <a class="watch-back" href="home.html" id="backBtn">
+        <i class="fa-solid fa-arrow-left"></i> Back
+      </a>
+
+      <!-- Hero -->
+      <div class="read-hero">
+        <img class="read-cover" id="coverImg" src="" alt=""
+          onerror="this.src='https://via.placeholder.com/200x280?text=?'">
+        <div class="read-info">
+          <h1 class="read-title" id="readTitle"></h1>
+          <div class="read-chips" id="readChips"></div>
+
+          <!-- Progress card -->
+          <div class="prog-card">
+            <div class="prog-card-title">Chapter Progress</div>
+            <div class="prog-row">
+              <input class="prog-input" type="number" id="chapInput" min="0" placeholder="0">
+              <span class="prog-sep">/</span>
+              <span class="prog-total" id="totalLabel">? ch</span>
+            </div>
+            <div class="prog-bar-wrap" id="progBarWrap" style="display:none;">
+              <div class="prog-bar-track">
+                <div class="prog-bar-fill" id="progBarFill" style="width:0%"></div>
+              </div>
+              <div class="prog-bar-label" id="progBarLabel"></div>
+            </div>
+            <div class="read-actions">
+              <button class="read-act-btn primary" id="saveProgBtn">
+                <i class="fa-solid fa-floppy-disk"></i> Save Progress
+              </button>
+              <button class="read-act-btn success" id="markDoneBtn">
+                <i class="fa-solid fa-check-double"></i> Mark Completed
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Notes -->
+      <div id="notesWrap" style="display:none;">
+        <p class="sec-title"><i class="fa-solid fa-note-sticky"></i> Notes</p>
+        <div class="notes-box" id="notesBox"></div>
+      </div>
+
+      <!-- Reading Sources -->
+      <p class="sec-title"><i class="fa-solid fa-book-open"></i> Where to Read</p>
+      <div class="sources-list" id="sourcesList"></div>
+    </div>
+  </div>
+
+  <script type="module">
+    import { getWishlistItem, updateWishlistItem, logActivity } from './js/firebase-service.js';
+    import { showToast } from './js/toast.js';
+
+    const q      = new URLSearchParams(location.search);
+    const itemId = q.get('id') || '';
+    if (!itemId) location.replace('home.html');
+
+    const READING_TYPES = ['manga','manhwa','manhua','novel'];
+    const STATUS_MAP = {
+      reading:'Reading', planning:'Plan to Read', completed:'Completed',
+      on_hold:'On Hold', dropped:'Dropped', watching:'Watching'
+    };
+    const TAG_COLORS = {
+      Free:     'background:rgba(76,175,80,.15);border-color:#4caf50;color:#81c784',
+      Premium:  'background:rgba(255,193,7,.12);border-color:#ffc107;color:#ffd54f',
+      Official: 'background:rgba(0,188,212,.12);border-color:#00bcd4;color:#4dd0e1',
+      'Fan-TL': 'background:rgba(255,152,0,.12);border-color:#ff9800;color:#ffb74d',
+    };
+
+    function langMeta(code) {
+      switch((code||'').toLowerCase()){
+        case 'id': return { name:'ID', flag:'assets/flags/id.png' };
+        case 'kr': return { name:'KR', flag:'assets/flags/kr.png' };
+        case 'my': return { name:'MY', flag:'assets/flags/my.png' };
+        default:   return { name:'EN', flag:'assets/flags/gb.png' };
+      }
+    }
+
+    function faviconUrl(url) {
+      try {
+        const domain = new URL(url).hostname;
+        return `https://t1.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=https://${domain}&size=64`;
+      } catch { return ''; }
+    }
+
+    let item;
+    try {
+      item = await getWishlistItem(itemId);
+    } catch(e) {
+      document.getElementById('loadingState').innerHTML =
+        `<div style="color:#c00;font-size:12px;">Could not load this title. <a href="home.html" style="color:#ff4444">Go back</a></div>`;
+      throw e;
+    }
+
+    document.title = `${item.title || 'Read'} — E-Library`;
+    document.getElementById('backBtn').href = `detail.html?id=${itemId}`;
+
+    // ── Populate hero ──────────────────────────────────────
+    document.getElementById('coverImg').src = item.cover_path || '';
+    document.getElementById('coverImg').alt = item.title || '';
+    document.getElementById('readTitle').textContent = item.title || 'Untitled';
+
+    const typeStr  = (item.type || '').charAt(0).toUpperCase() + (item.type || '').slice(1);
+    const statusStr = STATUS_MAP[item.status] || item.status || '';
+    const chipsEl  = document.getElementById('readChips');
+    if (item.type)   chipsEl.insertAdjacentHTML('beforeend', `<span class="read-chip type">${typeStr}</span>`);
+    if (item.genre)  chipsEl.insertAdjacentHTML('beforeend', `<span class="read-chip">${item.genre}</span>`);
+    if (statusStr)   chipsEl.insertAdjacentHTML('beforeend', `<span class="read-chip status">${statusStr}</span>`);
+
+    // ── Progress ───────────────────────────────────────────
+    const chapInput  = document.getElementById('chapInput');
+    const totalLabel = document.getElementById('totalLabel');
+    chapInput.value  = item.progress_current ?? '';
+    totalLabel.textContent = item.progress_total ? `/ ${item.progress_total} ch` : 'ch';
+
+    function updateProgressBar() {
+      const cur = Number(chapInput.value) || 0;
+      const tot = item.progress_total;
+      const wrap = document.getElementById('progBarWrap');
+      if (tot && cur) {
+        const pct = Math.min(100, Math.round((cur / tot) * 100));
+        wrap.style.display = '';
+        document.getElementById('progBarFill').style.width = pct + '%';
+        document.getElementById('progBarLabel').textContent = `${pct}% complete`;
+      } else {
+        wrap.style.display = 'none';
+      }
+    }
+    chapInput.addEventListener('input', updateProgressBar);
+    updateProgressBar();
+
+    // ── Save progress ──────────────────────────────────────
+    document.getElementById('saveProgBtn').addEventListener('click', async () => {
+      const btn = document.getElementById('saveProgBtn');
+      const cur = Number(chapInput.value);
+      if (!cur && cur !== 0) { showToast('Enter a chapter number.', 'error'); return; }
+      btn.disabled = true;
+      btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Saving...';
+      try {
+        await updateWishlistItem(itemId, { progress_current: cur, last_chapter: String(cur) });
+        item.progress_current = cur;
+        updateProgressBar();
+        showToast('Progress saved!', 'success');
+        logActivity('progress', { itemId, itemTitle: item.title, itemType: item.type, coverPath: item.cover_path }).catch(()=>{});
+      } catch(e) {
+        showToast(e.message || 'Save failed.', 'error');
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fa-solid fa-floppy-disk"></i> Save Progress';
+      }
+    });
+
+    // ── Mark completed ─────────────────────────────────────
+    document.getElementById('markDoneBtn').addEventListener('click', async () => {
+      const btn = document.getElementById('markDoneBtn');
+      btn.disabled = true;
+      btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
+      try {
+        const finalChap = item.progress_total || Number(chapInput.value) || item.progress_current;
+        await updateWishlistItem(itemId, {
+          status: 'completed',
+          progress_current: finalChap || item.progress_current,
+        });
+        item.status = 'completed';
+        showToast('Marked as completed!', 'success');
+        // Update status chip
+        document.querySelectorAll('.read-chip.status').forEach(c => c.textContent = 'Completed');
+        btn.innerHTML = '<i class="fa-solid fa-check-double"></i> Completed!';
+      } catch(e) {
+        showToast(e.message || 'Failed.', 'error');
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fa-solid fa-check-double"></i> Mark Completed';
+      }
+    });
+
+    // ── Notes ──────────────────────────────────────────────
+    if (item.notes) {
+      document.getElementById('notesWrap').style.display = '';
+      document.getElementById('notesBox').textContent = item.notes;
+    }
+
+    // ── Sources ────────────────────────────────────────────
+    const sourcesList = document.getElementById('sourcesList');
+    const allSources = [];
+
+    if (item.site_url) {
+      allSources.push({ label: 'Main Site', url: item.site_url, lang: 'en' });
+    }
+    (item.sources || []).filter(s => s.url).forEach(s => allSources.push(s));
+
+    if (!allSources.length) {
+      sourcesList.innerHTML = `
+        <div class="sources-empty">
+          <i class="fa-solid fa-book" style="font-size:28px;display:block;margin-bottom:8px;opacity:.3"></i>
+          No reading sources added yet.<br>
+          <a href="edit.html?id=${itemId}" style="color:#64b5f6;font-size:11px;">Add sources in Edit</a>
+        </div>`;
+    } else {
+      allSources.forEach(s => {
+        const lm   = langMeta(s.lang);
+        let label  = s.label?.trim() || '';
+        if (!label) { try { label = new URL(s.url).hostname.replace(/^www\./, ''); } catch { label = s.url; } }
+
+        const card = document.createElement('div');
+        card.className = 'source-card';
+        card.innerHTML = `
+          <img class="source-icon" src="${faviconUrl(s.url)}" alt="${label}"
+            onerror="this.src='';this.style.display='none'">
+          <div class="source-info">
+            <div class="source-name">${label}</div>
+            <div class="source-meta">
+              <img src="${lm.flag}" style="width:14px;height:10px;border-radius:2px;vertical-align:middle;margin-right:4px;" alt="${lm.name}">
+              ${lm.name}
+            </div>
+          </div>
+          <a class="source-visit-btn" href="${s.url}" target="_blank" rel="noopener">
+            <i class="fa-solid fa-arrow-up-right-from-square"></i> Read
+          </a>`;
+        sourcesList.appendChild(card);
+      });
+    }
+
+    // ── Show content ───────────────────────────────────────
+    document.getElementById('loadingState').style.display = 'none';
+    document.getElementById('mainContent').style.display  = '';
+  </script>
+</body>
+</html>

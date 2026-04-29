@@ -316,8 +316,8 @@
             <a class="btn-watch" href="watch.html?id=${item.id}">
               <i class="fa-solid fa-play"></i> Watch Now
             </a>` : ''}
-            ${['manga','manhwa','manhua','novel'].includes(item.type) && (item.site_url || (item.sources||[])[0]?.url) ? `
-            <a class="btn-read" href="${item.site_url || item.sources[0].url}" target="_blank" rel="noopener">
+            ${['manga','manhwa','manhua','novel'].includes(item.type) ? `
+            <a class="btn-read" href="read.html?id=${item.id}">
               <i class="fa-solid fa-book-open"></i> Read Now
             </a>` : ''}
             <a class="btn-edit" href="edit.html?id=${item.id}">
