@@ -60,8 +60,6 @@
         <button class="watch-ctrl-btn primary" id="btnMark" onclick="markWatched()">
           <i class="fa-solid fa-check"></i> <span id="btnMarkLabel">Mark Watched</span>
         </button>
-        <select class="season-select" id="seasonSelect" style="display:none;" onchange="onSeasonChange()">
-        </select>
       </div>
 
       <!-- Episode grid -->
@@ -75,6 +73,12 @@
           <button class="ep-nav-btn" id="btnNext" onclick="goNextEp()">Next <i class="fa-solid fa-chevron-right"></i></button>
         </div>
       </div>
+
+      <!-- Seasons section -->
+      <div class="seasons-section" id="seasonsSection" style="display:none;">
+        <div class="ep-section-title" style="margin-top:28px;">Seasons</div>
+        <div class="seasons-grid" id="seasonsGrid"></div>
+      </div>
     </div>
   </div>
 
@@ -87,6 +91,7 @@
     const TMDB_BASE  = '/api/tmdb';
     const JIKAN_BASE = 'https://api.jikan.moe/v4';
     const PAGE_SIZE  = 50;
+
 
     let item       = null;  // wishlist doc
     let tmdbId     = null;
@@ -406,39 +411,65 @@
       if (next) next.disabled = curEp >= maxEp;
     }
 
-    // ── Season select ─────────────────────────────────────
-    function buildSeasonSelect(numSeasons = 1) {
-      const sel = document.getElementById('seasonSelect');
-      sel.innerHTML = '';
-      for (let i = 1; i <= numSeasons; i++) {
-        const opt = document.createElement('option');
-        opt.value = i;
-        opt.textContent = `Season ${i}`;
-        sel.appendChild(opt);
-      }
-      // Only show if more than 1 season
-      sel.style.display = numSeasons > 1 ? '' : 'none';
-    }
-
+    // ── Season cards ──────────────────────────────────────
     async function fetchTmdbSeasons(id) {
       try {
         const res  = await fetch(`${TMDB_BASE}?path=tv/${id}`);
         if (!res.ok) return;
         const data = await res.json();
         const num  = data.number_of_seasons || 1;
-        buildSeasonSelect(num);
+        if (num <= 1) return; // only show section when multiple seasons exist
+        buildSeasonCards(id, num);
       } catch(_) {}
     }
 
-    window.onSeasonChange = function() {
-      curSeason = parseInt(document.getElementById('seasonSelect').value) || 1;
-      curEp = 1;
-      totalEps = 0;
+    async function buildSeasonCards(id, numSeasons) {
+      const section = document.getElementById('seasonsSection');
+      const grid    = document.getElementById('seasonsGrid');
+      section.style.display = '';
+      grid.innerHTML = '';
+
+      for (let i = 1; i <= numSeasons; i++) {
+        const card = document.createElement('div');
+        card.className = 'season-card' + (i === curSeason ? ' active' : '');
+        card.dataset.season = i;
+        card.innerHTML = `
+          <div class="season-card-num">${i}</div>
+          <div class="season-card-label">SEASON</div>
+          <div class="season-card-eps" id="s-eps-${i}">…</div>
+        `;
+        card.addEventListener('click', () => switchSeason(i));
+        grid.appendChild(card);
+
+        // Fetch ep count per season in background
+        fetch(`${TMDB_BASE}?path=tv/${id}/season/${i}`)
+          .then(r => r.json())
+          .then(d => {
+            const epCount = d.episodes?.length || 0;
+            const el = document.getElementById(`s-eps-${i}`);
+            if (el) el.textContent = epCount ? `${epCount} eps` : '';
+          }).catch(() => {});
+      }
+    }
+
+    function switchSeason(num) {
+      curSeason = num;
+      curEp     = 1;
+      totalEps  = 0;
       updateMarkBtn();
       updateServerMsg();
+      updatePrevNextBtns();
+
+      // Update active card highlight
+      document.querySelectorAll('.season-card').forEach(c => {
+        c.classList.toggle('active', parseInt(c.dataset.season) === num);
+      });
+
+      // Update episode grid for new season
+      document.getElementById('epSection').style.display = 'none';
       if (tmdbId && srcMode !== 'yt') loadEmbed(srcMode);
       if (tmdbId) fetchTmdbEpisodeCount(tmdbId, curSeason);
-    };
+    }
 
     // ── Episode grid ─────────────────────────────────────
     function buildEpGrid() {
