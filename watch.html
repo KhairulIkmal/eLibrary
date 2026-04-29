@@ -241,14 +241,14 @@
     // ── Embed URL builders ───────────────────────────────
     function buildEmbedUrl(id, type, season, ep) {
       if (!id) return null;
-      if (type === 'movie') return `https://vidsrc.to/embed/movie/${id}`;
-      return `https://vidsrc.to/embed/tv/${id}/${season}/${ep}`;
+      if (type === 'movie') return `https://vidsrc.xyz/embed/movie?tmdb=${id}`;
+      return `https://vidsrc.xyz/embed/tv?tmdb=${id}&season=${season}&episode=${ep}`;
     }
 
     function buildAltUrl(id, type, season, ep) {
       if (!id) return null;
-      if (type === 'movie') return `https://www.2embed.cc/embed/${id}`;
-      return `https://www.2embed.cc/embedtv/${id}&s=${season}&e=${ep}`;
+      if (type === 'movie') return `https://vidsrc.net/embed/movie?tmdb=${id}`;
+      return `https://vidsrc.net/embed/tv?tmdb=${id}&season=${season}&episode=${ep}`;
     }
 
     // ── Load iframe ──────────────────────────────────────
