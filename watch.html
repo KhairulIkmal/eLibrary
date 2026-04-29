@@ -144,9 +144,28 @@
 
       if (tmdbId) {
         loadEmbed('primary');
+        // Fetch episode count from TMDB if not set by user
+        if (!isMovie && totalEps === 0) {
+          fetchTmdbEpisodeCount(tmdbId, curSeason);
+        }
       } else {
         setPlayerMsg('<i class="fa-solid fa-triangle-exclamation"></i>', 'Could not find this title in the video database. Try YouTube Trailer below.');
       }
+    }
+
+    // ── Fetch episode count from TMDB ────────────────────
+    async function fetchTmdbEpisodeCount(id, season) {
+      try {
+        const res  = await fetch(`${TMDB_BASE}?path=tv/${id}/season/${season}`);
+        if (!res.ok) return;
+        const data = await res.json();
+        const count = data.episodes?.length || 0;
+        if (count > 0) {
+          totalEps = count;
+          updatePrevNextBtns();
+          buildEpGrid();
+        }
+      } catch(_) {}
     }
 
     // ── TMDB ID lookup ───────────────────────────────────
@@ -407,8 +426,11 @@
     window.onSeasonChange = function() {
       curSeason = parseInt(document.getElementById('seasonSelect').value) || 1;
       curEp = 1;
+      totalEps = 0;
       updateMarkBtn();
+      updateServerMsg();
       if (tmdbId && srcMode !== 'yt') loadEmbed(srcMode);
+      if (tmdbId) fetchTmdbEpisodeCount(tmdbId, curSeason);
     };
 
     // ── Episode grid ─────────────────────────────────────
