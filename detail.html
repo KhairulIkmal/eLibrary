@@ -261,49 +261,106 @@
       const slot = document.getElementById('trailerSlot');
       if (!slot) return; // manual URL already rendered inline
 
+      // Shared: wire save button once it exists in DOM
+      function wireSaveBtn() {
+        const btn = document.getElementById('btnSaveTrailer');
+        if (!btn || btn._wired) return;
+        btn._wired = true;
+        btn.addEventListener('click', async () => {
+          const url = document.getElementById('manualTrailerUrl').value.trim();
+          if (!url) return;
+          const embedUrl = youtubeEmbedUrl(url);
+          if (!embedUrl) { showToast('Invalid YouTube URL', 'error'); return; }
+          try {
+            await updateWishlistItem(docId, { preview_url: url, preview_source: 'youtube' });
+            slot.innerHTML = `
+              <div class="embed-wrap">
+                <iframe src="${embedUrl}?rel=0&modestbranding=1"
+                  allowfullscreen allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture">
+                </iframe>
+              </div>`;
+            showToast('Trailer saved!', 'success');
+          } catch(e) { showToast('Failed to save trailer.', 'error'); }
+        });
+      }
+
+      // Shared: manual URL input + YouTube search link HTML
+      function manualInputHtml(searchQuery) {
+        return `
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:8px;">
+            <input id="manualTrailerUrl" placeholder="Paste YouTube URL…"
+              style="flex:1;min-width:180px;background:#0a0a0a;border:1px solid #222;border-radius:8px;padding:7px 10px;color:#fff;font-family:'Bungee',sans-serif;font-size:10px;outline:none;">
+            <button id="btnSaveTrailer"
+              style="padding:7px 13px;border-radius:8px;background:rgba(255,0,0,.12);border:1px solid rgba(255,0,0,.28);color:#ff9999;font-family:'Bungee',sans-serif;font-size:10px;cursor:pointer;">
+              <i class="fa-solid fa-floppy-disk"></i> Save
+            </button>
+          </div>`;
+      }
+
       const ytId = await fetchTrailerYtId(item.title, item.type);
+      const searchQuery = encodeURIComponent(item.title + ' official trailer');
 
       if (ytId) {
+        // Render embed wrapper + hidden geo-block fallback
         slot.innerHTML = `
-          <div class="embed-wrap">
-            <iframe src="https://www.youtube.com/embed/${ytId}?rel=0&modestbranding=1"
-              allowfullscreen allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture">
-            </iframe>
+          <div id="ytEmbedWrap" style="position:relative;width:100%;aspect-ratio:16/9;border-radius:14px;overflow:hidden;background:#0a0a0a;border:1px solid #1c1c1c;">
+            <div id="ytPlayer" style="position:absolute;inset:0;width:100%;height:100%;"></div>
+          </div>
+          <div id="ytGeoBlock" style="display:none;margin-top:10px;padding:14px;background:#0d0d0d;border:1px solid #1c1c1c;border-radius:12px;">
+            <div style="font-size:11px;color:#777;margin-bottom:10px;">
+              <i class="fa-solid fa-earth-asia" style="margin-right:6px;color:rgba(255,0,0,.4)"></i>
+              Trailer not available in your region.
+            </div>
+            <a href="https://www.youtube.com/results?search_query=${searchQuery}" target="_blank" rel="noopener"
+               style="display:inline-flex;align-items:center;gap:7px;padding:8px 14px;border-radius:8px;background:rgba(255,68,68,.08);border:1px solid rgba(255,68,68,.25);color:#ff9999;font-size:11px;text-decoration:none;font-family:'Bungee',sans-serif;">
+              <i class="fa-brands fa-youtube"></i> Search trailer on YouTube
+            </a>
+            <div style="margin-top:10px;font-size:10px;color:#555;">Or paste a working URL:</div>
+            ${manualInputHtml(searchQuery)}
           </div>`;
+
+        // Load YouTube iframe API (once per page)
+        await new Promise(resolve => {
+          if (window.YT?.Player) { resolve(); return; }
+          const prev = window.onYouTubeIframeAPIReady;
+          window.onYouTubeIframeAPIReady = () => { if (typeof prev === 'function') prev(); resolve(); };
+          if (!document.querySelector('script[src*="iframe_api"]')) {
+            const s = document.createElement('script');
+            s.src = 'https://www.youtube.com/iframe_api';
+            document.head.appendChild(s);
+          }
+        });
+
+        new YT.Player('ytPlayer', {
+          videoId: ytId,
+          width: '100%',
+          height: '100%',
+          playerVars: { rel: 0, modestbranding: 1 },
+          events: {
+            onError: (e) => {
+              // 100 = removed, 101/150 = embedding disabled or geo-blocked
+              if ([100, 101, 150].includes(e.data)) {
+                const wrap = document.getElementById('ytEmbedWrap');
+                if (wrap) wrap.style.display = 'none';
+                const geo = document.getElementById('ytGeoBlock');
+                if (geo) geo.style.display = 'block';
+                wireSaveBtn();
+              }
+            }
+          }
+        });
         return;
       }
 
-      // Not found — show manual add form
+      // No trailer found — show YouTube search link + manual paste
       slot.innerHTML = `
         <div style="font-size:11px;color:#444;margin-bottom:10px;">No trailer found automatically.</div>
-        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
-          <input id="manualTrailerUrl" placeholder="Paste YouTube URL…"
-            style="flex:1;min-width:200px;background:#0d0d0d;border:1px solid #2a2a2a;border-radius:8px;
-                   padding:8px 10px;color:#fff;font-family:'Bungee',sans-serif;font-size:10px;outline:none;">
-          <button id="btnSaveTrailer"
-            style="padding:8px 14px;border-radius:8px;border:none;background:rgba(255,0,0,.15);
-                   border:1px solid rgba(255,0,0,.3);color:#ff9999;font-family:'Bungee',sans-serif;
-                   font-size:10px;cursor:pointer;">
-            <i class="fa-solid fa-floppy-disk"></i> Save
-          </button>
-        </div>`;
-
-      document.getElementById('btnSaveTrailer').addEventListener('click', async () => {
-        const url = document.getElementById('manualTrailerUrl').value.trim();
-        if (!url) return;
-        const embedUrl = youtubeEmbedUrl(url);
-        if (!embedUrl) { showToast('Invalid YouTube URL', 'error'); return; }
-        try {
-          await updateWishlistItem(docId, { preview_url: url, preview_source: 'youtube' });
-          slot.innerHTML = `
-            <div class="embed-wrap">
-              <iframe src="${embedUrl}?rel=0&modestbranding=1"
-                allowfullscreen allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture">
-              </iframe>
-            </div>`;
-          showToast('Trailer saved!', 'success');
-        } catch(e) { showToast('Failed to save trailer.', 'error'); }
-      });
+        <a href="https://www.youtube.com/results?search_query=${searchQuery}" target="_blank" rel="noopener"
+           style="display:inline-flex;align-items:center;gap:7px;padding:8px 14px;border-radius:8px;background:rgba(255,68,68,.08);border:1px solid rgba(255,68,68,.25);color:#ff9999;font-size:11px;text-decoration:none;font-family:'Bungee',sans-serif;">
+          <i class="fa-brands fa-youtube"></i> Search trailer on YouTube
+        </a>
+        ${manualInputHtml(searchQuery)}`;
+      wireSaveBtn();
     }
 
     function renderSources(item){
