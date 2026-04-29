@@ -98,6 +98,28 @@
     let curEp      = 1;
     let curSeason  = 1;
     let totalEps   = 0;
+
+    // ── Season parser ─────────────────────────────────────
+    function parseSeasonFromTitle(title) {
+      if (!title) return 1;
+      const t = title.toLowerCase();
+      // "2nd Season", "3rd Season", "4th Season" …
+      const ordinal = t.match(/(\d+)(?:st|nd|rd|th)\s+season/);
+      if (ordinal) return parseInt(ordinal[1]);
+      // "Season 2"
+      const plain = t.match(/season\s+(\d+)/);
+      if (plain) return parseInt(plain[1]);
+      // "Part 2", "Part II"
+      const part = t.match(/part\s+(\d+|ii|iii|iv)/);
+      if (part) {
+        const roman = { ii:2, iii:3, iv:4 };
+        return roman[part[1]] ?? parseInt(part[1]) ?? 1;
+      }
+      // "S2", "S3"
+      const shortS = t.match(/\bs(\d+)\b/);
+      if (shortS) return parseInt(shortS[1]);
+      return 1;
+    }
     let epPage     = 0;  // current page index (0-based)
     let srcMode    = 'primary';  // 'primary' | 'alt' | 'yt'
     let iframeEl   = null;
@@ -120,7 +142,7 @@
       curEp     = Math.max(1, (item.progress_current || 0) + 1);
       if (item.status === 'completed' || item.progress_current === item.progress_total) curEp = 1;
       totalEps  = item.progress_total || 0;
-      curSeason = 1;
+      curSeason = parseSeasonFromTitle(item.title); // detect from title e.g. "2nd Season"
 
       updateMarkBtn();
 
@@ -417,8 +439,25 @@
         const res  = await fetch(`${TMDB_BASE}?path=tv/${id}`);
         if (!res.ok) return;
         const data = await res.json();
-        const num  = data.number_of_seasons || 1;
-        if (num <= 1) return; // only show section when multiple seasons exist
+        let num    = data.number_of_seasons || 1;
+
+        // TMDB often reports 1 season for anime even when season 2 exists.
+        // Use title hint (e.g. "2nd Season") and probe Season 2 as fallback checks.
+        const titleSeason = parseSeasonFromTitle(item.title);
+        num = Math.max(num, titleSeason);
+
+        if (num <= 1) {
+          // Last resort: probe Season 2 directly
+          try {
+            const s2res = await fetch(`${TMDB_BASE}?path=tv/${id}/season/2`);
+            if (s2res.ok) {
+              const s2data = await s2res.json();
+              if (s2data.episodes?.length > 0) num = 2;
+            }
+          } catch(_) {}
+        }
+
+        if (num <= 1) return; // truly single-season — don't show the section
         buildSeasonCards(id, num);
       } catch(_) {}
     }
