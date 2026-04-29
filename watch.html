@@ -191,48 +191,86 @@
       } catch(_) {}
     }
 
+    // ── Strip season/part suffixes for cleaner TMDB search ──
+    function cleanTitleForSearch(t) {
+      return t
+        .replace(/\s*\d+(?:st|nd|rd|th)\s+season/gi, '') // "2nd Season"
+        .replace(/\s*season\s+\d+/gi, '')                 // "Season 3"
+        .replace(/\s*part\s+(?:\d+|ii|iii|iv)/gi, '')    // "Part 2", "Part II"
+        .replace(/\s*cour\s+\d+/gi, '')                   // "Cour 2"
+        .replace(/\s*\bs\d+\b/gi, '')                     // "S2"
+        .replace(/\s*[-–:]\s*$/, '')                      // trailing dash/colon
+        .trim();
+    }
+
     // ── TMDB ID lookup ───────────────────────────────────
     async function getTmdbId(title, type) {
-      const isMovie = type === 'movie';
+      const isMovie    = type === 'movie';
       const searchPath = isMovie ? 'search/movie' : 'search/tv';
+      const cleaned    = cleanTitleForSearch(title); // e.g. "Shingeki no Kyojin"
 
-      // Helper: pick best match (exact title preferred over first result)
-      function bestHit(results) {
-        if (!results?.length) return null;
-        const norm = title.toLowerCase().trim();
-        const exact = results.find(r =>
-          (r.title || r.name || '').toLowerCase().trim() === norm ||
-          (r.original_title || r.original_name || '').toLowerCase().trim() === norm
-        );
-        return exact || results[0];
+      // Helper: first result is fine for TMDB (their ranking is good)
+      function firstHit(results) {
+        return results?.[0] || null;
       }
 
-      // 1st try: search/tv or search/movie
-      try {
-        const res  = await fetch(`${TMDB_BASE}?path=${searchPath}&query=${encodeURIComponent(title)}`);
-        if (res.ok) {
-          const data = await res.json();
-          const hit  = bestHit(data.results);
-          if (hit?.id) return hit.id;
-        }
-      } catch(_) {}
-
-      // 2nd try (anime only): get canonical English title from Jikan, re-search TMDB
-      if (!isMovie) {
+      // Helper: search TMDB and return id or null
+      async function tmdbSearch(q) {
         try {
-          const jRes  = await fetch(`${JIKAN_BASE}/anime?q=${encodeURIComponent(title)}&limit=1`);
-          const jData = await jRes.json();
-          const anime = jData.data?.[0];
-          const altTitle = anime?.title_english || anime?.title;
-          if (altTitle && altTitle.toLowerCase().trim() !== title.toLowerCase().trim()) {
-            const res2  = await fetch(`${TMDB_BASE}?path=search/tv&query=${encodeURIComponent(altTitle)}`);
-            if (res2.ok) {
-              const data2 = await res2.json();
-              const hit2  = bestHit(data2.results);
-              if (hit2?.id) return hit2.id;
-            }
+          const res = await fetch(`${TMDB_BASE}?path=${searchPath}&query=${encodeURIComponent(q)}`);
+          if (!res.ok) return null;
+          const data = await res.json();
+          return firstHit(data.results)?.id || null;
+        } catch(_) { return null; }
+      }
+
+      // Helper: get Jikan canonical English title for a query string
+      async function jikanTitle(q) {
+        try {
+          const res  = await fetch(`${JIKAN_BASE}/anime?q=${encodeURIComponent(q)}&limit=1`);
+          const data = await res.json();
+          const anime = data.data?.[0];
+          return anime?.title_english || anime?.title || null;
+        } catch(_) { return null; }
+      }
+
+      // Try order (stops at first hit):
+      // 1. Raw title on TMDB             "Shingeki no Kyojin Season 3 Part 2"
+      // 2. Cleaned title on TMDB         "Shingeki no Kyojin"
+      // 3. Jikan(raw) → English → TMDB  "Attack on Titan Season 3 Part 2" → TMDB
+      // 4. Jikan(cleaned) → English → TMDB  "Attack on Titan" → TMDB
+
+      let id;
+
+      id = await tmdbSearch(title);
+      if (id) return id;
+
+      if (!isMovie && cleaned !== title) {
+        id = await tmdbSearch(cleaned);
+        if (id) return id;
+      }
+
+      if (!isMovie) {
+        const eng = await jikanTitle(title);
+        if (eng) {
+          id = await tmdbSearch(eng);
+          if (id) return id;
+
+          const engCleaned = cleanTitleForSearch(eng);
+          if (engCleaned !== eng) {
+            id = await tmdbSearch(engCleaned);
+            if (id) return id;
           }
-        } catch(_) {}
+        }
+
+        // Last resort: Jikan with the already-cleaned base title
+        if (cleaned !== title) {
+          const eng2 = await jikanTitle(cleaned);
+          if (eng2) {
+            id = await tmdbSearch(eng2);
+            if (id) return id;
+          }
+        }
       }
 
       return null;
