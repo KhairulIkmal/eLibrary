@@ -77,8 +77,15 @@
         <input type="number" name="progress_current" min="0" placeholder="e.g. 5">
       </div>
       <div>
-        <label>Total Ep/Ch</label>
+        <label style="display:flex;align-items:center;justify-content:space-between;">
+          Total Ep/Ch
+          <button type="button" id="btnAutoTotal"
+            style="font-size:9px;padding:3px 8px;border-radius:6px;border:1px solid rgba(255,0,0,.3);background:rgba(255,0,0,.08);color:#ff9999;cursor:pointer;font-family:'Bungee',sans-serif;">
+            <i class="fa-solid fa-wand-magic-sparkles"></i> Auto
+          </button>
+        </label>
         <input type="number" name="progress_total" min="0" placeholder="e.g. 24">
+        <div id="autoTotalMsg" style="font-size:9px;color:#555;margin-top:4px;display:none;"></div>
       </div>
 
       <div>
@@ -181,6 +188,90 @@
       if(/youtu\.be|youtube\.com/i.test(url)) return 'youtube';
       return '';
     }
+
+    // ── Auto-fetch total ep/ch ───────────────────────────────
+    const JIKAN  = 'https://api.jikan.moe/v4';
+    const TMDB   = '/api/tmdb';
+
+    async function fetchTotalCount(title, type) {
+      if (type === 'movie') return { count: 1, source: 'Movie' };
+
+      // Anime → Jikan anime endpoint
+      if (type === 'anime') {
+        const res  = await fetch(`${JIKAN}/anime?q=${encodeURIComponent(title)}&limit=5`);
+        const data = await res.json();
+        const hit  = data.data?.find(a =>
+          (a.title || '').toLowerCase().includes(title.toLowerCase()) ||
+          (a.title_english || '').toLowerCase().includes(title.toLowerCase())
+        ) || data.data?.[0];
+        if (hit?.episodes) return { count: hit.episodes, source: `Jikan — ${hit.title}` };
+        return null;
+      }
+
+      // Manga / Manhwa / Manhua / Novel → Jikan manga endpoint
+      if (['manga','manhwa','manhua','novel'].includes(type)) {
+        const res  = await fetch(`${JIKAN}/manga?q=${encodeURIComponent(title)}&limit=5`);
+        const data = await res.json();
+        const hit  = data.data?.find(m =>
+          (m.title || '').toLowerCase().includes(title.toLowerCase()) ||
+          (m.title_english || '').toLowerCase().includes(title.toLowerCase())
+        ) || data.data?.[0];
+        if (hit?.chapters) return { count: hit.chapters, source: `Jikan — ${hit.title}` };
+        // Ongoing manhwa often have null chapters — report that
+        if (hit) return { count: null, source: `${hit.title} — ongoing (no fixed chapter count)` };
+        return null;
+      }
+
+      // TV show → TMDB total episodes across all seasons
+      if (type === 'tv-show') {
+        const res  = await fetch(`${TMDB}?path=search/tv&query=${encodeURIComponent(title)}`);
+        const data = await res.json();
+        const hit  = data.results?.[0];
+        if (!hit?.id) return null;
+        const det  = await fetch(`${TMDB}?path=tv/${hit.id}`);
+        const d    = await det.json();
+        const total = d.number_of_episodes;
+        if (total) return { count: total, source: `TMDB — ${hit.name}` };
+      }
+
+      return null;
+    }
+
+    document.getElementById('btnAutoTotal').addEventListener('click', async () => {
+      const btn  = document.getElementById('btnAutoTotal');
+      const msgEl = document.getElementById('autoTotalMsg');
+      const title = form.title.value.trim();
+      const type  = form.type.value;
+
+      if (!title) { msgEl.textContent = 'Fill in the title first.'; msgEl.style.color='#f44336'; msgEl.style.display='block'; return; }
+
+      btn.disabled = true;
+      btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i>';
+      msgEl.style.display = 'none';
+
+      try {
+        const result = await fetchTotalCount(title, type);
+        if (!result) {
+          msgEl.textContent = 'Could not find count — try updating the title first.';
+          msgEl.style.color = '#f44336';
+        } else if (result.count == null) {
+          msgEl.textContent = result.source;
+          msgEl.style.color = '#888';
+        } else {
+          form.progress_total.value = result.count;
+          msgEl.textContent = `✓ ${result.source}`;
+          msgEl.style.color = '#4caf50';
+        }
+        msgEl.style.display = 'block';
+      } catch(e) {
+        msgEl.textContent = 'Fetch failed — check connection.';
+        msgEl.style.color = '#f44336';
+        msgEl.style.display = 'block';
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fa-solid fa-wand-magic-sparkles"></i> Auto';
+      }
+    });
 
     // Load existing item and pre-fill
     let item;
