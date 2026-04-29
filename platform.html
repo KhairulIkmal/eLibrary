@@ -68,6 +68,25 @@
       grid-column:1/-1; text-align:center; padding:30px; color:#444; font-size:12px;
     }
 
+    /* add source button */
+    .src-add-btn{
+      display:flex; align-items:center; gap:6px;
+      padding:7px 16px; border-radius:20px; border:1px solid rgba(255,0,0,.35);
+      background:rgba(255,0,0,.1); color:#fff; font-family:"Bungee",Arial,sans-serif;
+      font-size:11px; cursor:pointer; transition:all .15s;
+    }
+    .src-add-btn:hover{ background:rgba(255,0,0,.2); border-color:rgba(255,0,0,.6); }
+
+    /* owned source card controls */
+    .src-card-actions{ display:flex; gap:6px; margin-top:6px; }
+    .src-edit-btn, .src-del-btn{
+      flex:1; padding:5px 0; border-radius:7px; border:1px solid #2a2a2a;
+      background:#161616; color:#888; font-family:"Bungee",Arial,sans-serif;
+      font-size:9px; cursor:pointer; transition:all .15s;
+    }
+    .src-edit-btn:hover{ color:#fff; border-color:#555; }
+    .src-del-btn:hover{ color:#f44336; border-color:#f44336; }
+
     /* source sub-tabs */
     .src-subtabs{ display:flex; gap:6px; margin-bottom:16px; }
     .src-subtab{
@@ -151,9 +170,14 @@
 
     <!-- ── Sources tab ────────────────────────────────── -->
     <div id="tab-sources" style="display:none;">
-      <div class="src-subtabs" id="srcSubtabs">
-        <button class="src-subtab active" data-src="streaming">Streaming Platforms</button>
-        <button class="src-subtab" data-src="webtoon">Reading Platforms</button>
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:14px;">
+        <div class="src-subtabs" id="srcSubtabs" style="margin-bottom:0;">
+          <button class="src-subtab active" data-src="streaming">Streaming</button>
+          <button class="src-subtab" data-src="webtoon">Reading</button>
+        </div>
+        <button class="src-add-btn" id="btnAddSrc">
+          <i class="fa-solid fa-plus"></i> Add Source
+        </button>
       </div>
       <div id="srcGrid" class="src-grid">
         <div class="src-empty"><i class="fa-solid fa-circle-notch fa-spin"></i></div>
@@ -161,8 +185,61 @@
     </div>
   </div>
 
+  <!-- ── Add / Edit Source Modal ──────────────────────────── -->
+  <div id="srcModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,.88); z-index:300; align-items:center; justify-content:center;">
+    <div style="background:#111; border:1px solid #2a2a2a; border-radius:16px; padding:28px 28px 24px; width:min(440px,90vw); position:relative;">
+      <div style="font-size:15px; margin-bottom:20px;" id="srcModalTitle">Add Source</div>
+
+      <div style="display:flex;flex-direction:column;gap:14px;">
+        <div>
+          <label style="font-size:10px;color:#666;display:block;margin-bottom:5px;">NAME</label>
+          <input id="srcName" placeholder="e.g. Crunchyroll" style="width:100%;box-sizing:border-box;background:#0d0d0d;border:1px solid #2a2a2a;border-radius:8px;padding:9px 12px;color:#fff;font-family:'Bungee',sans-serif;font-size:11px;outline:none;" />
+        </div>
+        <div>
+          <label style="font-size:10px;color:#666;display:block;margin-bottom:5px;">URL</label>
+          <input id="srcUrl" placeholder="https://crunchyroll.com" style="width:100%;box-sizing:border-box;background:#0d0d0d;border:1px solid #2a2a2a;border-radius:8px;padding:9px 12px;color:#fff;font-family:'Bungee',sans-serif;font-size:11px;outline:none;" />
+        </div>
+        <div>
+          <label style="font-size:10px;color:#666;display:block;margin-bottom:8px;">TYPE</label>
+          <div style="display:flex;gap:8px;">
+            <label style="display:flex;align-items:center;gap:6px;font-size:10px;cursor:pointer;">
+              <input type="radio" name="srcType" value="streaming" checked /> Streaming
+            </label>
+            <label style="display:flex;align-items:center;gap:6px;font-size:10px;cursor:pointer;">
+              <input type="radio" name="srcType" value="webtoon" /> Reading
+            </label>
+          </div>
+        </div>
+        <div>
+          <label style="font-size:10px;color:#666;display:block;margin-bottom:8px;">TAGS</label>
+          <div style="display:flex;flex-wrap:wrap;gap:8px;" id="srcTagsWrap">
+            <label style="font-size:10px;cursor:pointer;"><input type="checkbox" value="Free" /> Free</label>
+            <label style="font-size:10px;cursor:pointer;"><input type="checkbox" value="Premium" /> Premium</label>
+            <label style="font-size:10px;cursor:pointer;"><input type="checkbox" value="Sub" /> Sub</label>
+            <label style="font-size:10px;cursor:pointer;"><input type="checkbox" value="Dub" /> Dub</label>
+            <label style="font-size:10px;cursor:pointer;"><input type="checkbox" value="Official" /> Official</label>
+            <label style="font-size:10px;cursor:pointer;"><input type="checkbox" value="Fan-TL" /> Fan-TL</label>
+          </div>
+        </div>
+        <div id="srcModalErr" style="font-size:10px;color:#f44336;display:none;"></div>
+      </div>
+
+      <div style="display:flex;gap:10px;margin-top:22px;">
+        <button id="srcModalSave" style="flex:1;padding:9px;border-radius:8px;border:none;background:#cc0000;color:#fff;font-family:'Bungee',sans-serif;font-size:11px;cursor:pointer;">Save</button>
+        <button id="srcModalCancel" style="padding:9px 18px;border-radius:8px;border:1px solid #333;background:transparent;color:#888;font-family:'Bungee',sans-serif;font-size:11px;cursor:pointer;">Cancel</button>
+      </div>
+    </div>
+  </div>
+
   <script type="module">
-    import { getWishlist, getPlatforms, recordPlatformVisit } from './js/firebase-service.js';
+    import {
+      getWishlist,
+      getCommunityPlatforms, addCommunityPlatform, updateCommunityPlatform,
+      deleteCommunityPlatform, recordCommunityVisit, getCurrentUid
+    } from './js/firebase-service.js';
+
+    let currentUid = null;
+    getCurrentUid().then(uid => { currentUid = uid; }).catch(() => {});
 
     const STREAMING_TYPES = ['anime','movie','tv-show'];
     const READING_TYPES   = ['manga','manhwa','manhua','novel'];
@@ -417,50 +494,33 @@
     function buildRecentVisited(platforms) {
       const recent = platforms
         .filter(p => p.visit_count > 0 && p.last_visited)
-        .sort((a, b) => {
-          const ta = a.last_visited?.toMillis?.() ?? 0;
-          const tb = b.last_visited?.toMillis?.() ?? 0;
-          return tb - ta;
-        })
+        .sort((a, b) => (b.last_visited?.toMillis?.() ?? 0) - (a.last_visited?.toMillis?.() ?? 0))
         .slice(0, 5);
       if (!recent.length) return null;
 
       const wrap = document.createElement('div');
       wrap.className = 'recent-visited';
-
       const lbl = document.createElement('div');
       lbl.className = 'recent-visited-label';
       lbl.textContent = 'Recently Visited';
       wrap.appendChild(lbl);
-
       const row = document.createElement('div');
       row.className = 'recent-row';
 
       recent.forEach(p => {
         const chip = document.createElement('div');
         chip.className = 'recent-chip';
-
         const ico = document.createElement('img');
         ico.src = p.icon_path || '';
         ico.alt = p.name;
         ico.onerror = () => { ico.style.display='none'; };
         chip.appendChild(ico);
-
         const info = document.createElement('div');
-        const nameEl = document.createElement('div');
-        nameEl.className = 'recent-chip-name';
-        nameEl.textContent = p.name;
-        const countEl = document.createElement('div');
-        countEl.className = 'recent-chip-count';
-        countEl.textContent = `${p.visit_count} visit${p.visit_count !== 1 ? 's' : ''}`;
-        info.appendChild(nameEl);
-        info.appendChild(countEl);
+        const nameEl = document.createElement('div'); nameEl.className = 'recent-chip-name'; nameEl.textContent = p.name;
+        const countEl = document.createElement('div'); countEl.className = 'recent-chip-count'; countEl.textContent = `${p.visit_count} visit${p.visit_count !== 1 ? 's' : ''}`;
+        info.appendChild(nameEl); info.appendChild(countEl);
         chip.appendChild(info);
-
-        chip.addEventListener('click', () => {
-          recordPlatformVisit(p.id).catch(() => {});
-          safeOpen(p.url);
-        });
+        chip.addEventListener('click', () => { recordCommunityVisit(p.id).catch(() => {}); safeOpen(p.url); });
         row.appendChild(chip);
       });
 
@@ -468,85 +528,170 @@
       return wrap;
     }
 
+    function buildSrcCard(p) {
+      const card = document.createElement('div');
+      card.className = 'src-card';
+
+      const icon = document.createElement('img');
+      icon.className = 'src-icon';
+      icon.src = p.icon_path || '';
+      icon.alt = p.name;
+      icon.onerror = () => { icon.style.display='none'; };
+      card.appendChild(icon);
+
+      const name = document.createElement('div');
+      name.className = 'src-name';
+      name.textContent = p.name;
+      card.appendChild(name);
+
+      if (p.visit_count > 0) {
+        const vc = document.createElement('div');
+        vc.style.cssText = 'font-size:9px;color:#444;margin-top:2px;';
+        vc.textContent = `${p.visit_count} visit${p.visit_count !== 1 ? 's' : ''}`;
+        card.appendChild(vc);
+      }
+
+      if (p.tags?.length) {
+        const tagsEl = document.createElement('div');
+        tagsEl.className = 'src-tags';
+        p.tags.forEach(t => {
+          const c = TAG_COLORS[t] || { bg:'#1a1a1a', border:'#333', color:'#888' };
+          const tag = document.createElement('span');
+          tag.className = 'src-tag';
+          tag.textContent = t;
+          tag.style.background = c.bg;
+          tag.style.borderColor = c.border;
+          tag.style.color = c.color;
+          tagsEl.appendChild(tag);
+        });
+        card.appendChild(tagsEl);
+      }
+
+      const byLabel = document.createElement('div');
+      byLabel.style.cssText = 'font-size:9px;color:#333;margin-top:4px;';
+      byLabel.textContent = p.created_by === currentUid ? 'Added by you' : 'Community';
+      card.appendChild(byLabel);
+
+      const visitBtn = document.createElement('button');
+      visitBtn.className = 'src-visit-btn';
+      visitBtn.innerHTML = '<i class="fa-solid fa-arrow-up-right-from-square"></i> Visit';
+      visitBtn.addEventListener('click', () => { recordCommunityVisit(p.id).catch(() => {}); safeOpen(p.url); });
+      card.appendChild(visitBtn);
+
+      if (p.created_by === currentUid) {
+        const actions = document.createElement('div');
+        actions.className = 'src-card-actions';
+
+        const editBtn = document.createElement('button');
+        editBtn.className = 'src-edit-btn';
+        editBtn.innerHTML = '<i class="fa-solid fa-pen"></i> Edit';
+        editBtn.addEventListener('click', () => openModal(p));
+        actions.appendChild(editBtn);
+
+        const delBtn = document.createElement('button');
+        delBtn.className = 'src-del-btn';
+        delBtn.innerHTML = '<i class="fa-solid fa-trash"></i>';
+        delBtn.addEventListener('click', async () => {
+          if (!confirm(`Delete "${p.name}"?`)) return;
+          try { await deleteCommunityPlatform(p.id); loadSources(currentSrcType); }
+          catch(e) { alert(e.message); }
+        });
+        actions.appendChild(delBtn);
+        card.appendChild(actions);
+      }
+
+      return card;
+    }
+
+    let currentSrcType = 'streaming';
+
     async function loadSources(type) {
+      currentSrcType = type;
       srcLoaded = true;
       const grid = document.getElementById('srcGrid');
       grid.innerHTML = '<div class="src-empty"><i class="fa-solid fa-circle-notch fa-spin"></i></div>';
       try {
-        const platforms = await getPlatforms(type);
+        const platforms = await getCommunityPlatforms(type);
         grid.innerHTML = '';
 
-        // Recently visited strip (above the main grid)
         const recentEl = buildRecentVisited(platforms);
         if (recentEl) {
           const gridParent = grid.parentNode;
-          const existing = gridParent.querySelector('.recent-visited');
-          if (existing) existing.remove();
+          gridParent.querySelector('.recent-visited')?.remove();
           gridParent.insertBefore(recentEl, grid);
         }
 
         if (!platforms.length) {
-          grid.innerHTML = `<div class="src-empty">No platforms yet — <a href="add_platform.html" style="color:#cc0000;">add one</a>.</div>`;
+          grid.innerHTML = `<div class="src-empty">No community sources yet — be the first to add one!</div>`;
           return;
         }
-        platforms.forEach(p => {
-          const card = document.createElement('div');
-          card.className = 'src-card';
-
-          const statusDot = document.createElement('div');
-          statusDot.className = 'src-status';
-          card.appendChild(statusDot);
-
-          const icon = document.createElement('img');
-          icon.className = 'src-icon';
-          icon.src = p.icon_path || '';
-          icon.alt = p.name;
-          icon.onerror = () => { icon.style.display='none'; };
-          card.appendChild(icon);
-
-          const name = document.createElement('div');
-          name.className = 'src-name';
-          name.textContent = p.name;
-          card.appendChild(name);
-
-          if (p.visit_count > 0) {
-            const vc = document.createElement('div');
-            vc.style.cssText = 'font-size:9px;color:#444;margin-top:2px;';
-            vc.textContent = `${p.visit_count} visit${p.visit_count !== 1 ? 's' : ''}`;
-            card.appendChild(vc);
-          }
-
-          if (p.tags?.length) {
-            const tagsEl = document.createElement('div');
-            tagsEl.className = 'src-tags';
-            p.tags.forEach(t => {
-              const c = TAG_COLORS[t] || { bg:'#1a1a1a', border:'#333', color:'#888' };
-              const tag = document.createElement('span');
-              tag.className = 'src-tag';
-              tag.textContent = t;
-              tag.style.background = c.bg;
-              tag.style.borderColor = c.border;
-              tag.style.color = c.color;
-              tagsEl.appendChild(tag);
-            });
-            card.appendChild(tagsEl);
-          }
-
-          const visitBtn = document.createElement('button');
-          visitBtn.className = 'src-visit-btn';
-          visitBtn.innerHTML = '<i class="fa-solid fa-arrow-up-right-from-square"></i> Visit';
-          visitBtn.addEventListener('click', () => {
-            recordPlatformVisit(p.id).catch(() => {});
-            window.open(p.url, '_blank', 'noopener');
-          });
-          card.appendChild(visitBtn);
-
-          grid.appendChild(card);
-        });
+        platforms.forEach(p => grid.appendChild(buildSrcCard(p)));
       } catch(e) {
-        grid.innerHTML = '<div class="src-empty" style="color:#c00;">Error loading platforms.</div>';
+        console.error(e);
+        grid.innerHTML = '<div class="src-empty" style="color:#c00;">Error loading sources.</div>';
       }
     }
+
+    // ── Add / Edit Modal ─────────────────────────────────────
+    const modal       = document.getElementById('srcModal');
+    const modalTitle  = document.getElementById('srcModalTitle');
+    const srcName     = document.getElementById('srcName');
+    const srcUrlInp   = document.getElementById('srcUrl');
+    const srcModalErr = document.getElementById('srcModalErr');
+    let editingId     = null;
+
+    function openModal(platform = null) {
+      editingId = platform?.id || null;
+      modalTitle.textContent = platform ? 'Edit Source' : 'Add Source';
+      srcName.value    = platform?.name || '';
+      srcUrlInp.value  = platform?.url  || '';
+      const typeVal = platform?.type || currentSrcType;
+      document.querySelectorAll('input[name="srcType"]').forEach(r => { r.checked = r.value === typeVal; });
+      const activeTags = platform?.tags || [];
+      document.querySelectorAll('#srcTagsWrap input[type="checkbox"]').forEach(cb => { cb.checked = activeTags.includes(cb.value); });
+      srcModalErr.style.display = 'none';
+      modal.style.display = 'flex';
+      srcName.focus();
+    }
+
+    function closeModal() { modal.style.display = 'none'; editingId = null; }
+
+    document.getElementById('btnAddSrc').addEventListener('click', () => openModal());
+    document.getElementById('srcModalCancel').addEventListener('click', closeModal);
+    modal.addEventListener('click', e => { if (e.target === modal) closeModal(); });
+
+    document.getElementById('srcModalSave').addEventListener('click', async () => {
+      const name = srcName.value.trim();
+      const url  = srcUrlInp.value.trim();
+      const type = document.querySelector('input[name="srcType"]:checked')?.value || 'streaming';
+      const tags = [...document.querySelectorAll('#srcTagsWrap input[type="checkbox"]:checked')].map(c => c.value);
+
+      srcModalErr.style.display = 'none';
+      if (!name) { srcModalErr.textContent = 'Name is required.'; srcModalErr.style.display='block'; return; }
+      if (!url)  { srcModalErr.textContent = 'URL is required.';  srcModalErr.style.display='block'; return; }
+
+      const saveBtn = document.getElementById('srcModalSave');
+      saveBtn.textContent = 'Saving…'; saveBtn.disabled = true;
+      try {
+        if (editingId) {
+          await updateCommunityPlatform(editingId, { name, url, type, tags });
+        } else {
+          await addCommunityPlatform({ name, url, type, tags });
+        }
+        closeModal();
+        loadSources(currentSrcType);
+      } catch(e) {
+        if (e.message?.startsWith('DUPLICATE:')) {
+          const dupName = e.message.split(':')[1];
+          srcModalErr.textContent = `"${dupName}" already exists with the same URL.`;
+        } else {
+          srcModalErr.textContent = e.message || 'Failed to save. Try again.';
+        }
+        srcModalErr.style.display = 'block';
+      } finally {
+        saveBtn.textContent = 'Save'; saveBtn.disabled = false;
+      }
+    });
 
     // Boot
     loadWishlist();

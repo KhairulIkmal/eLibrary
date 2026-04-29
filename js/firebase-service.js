@@ -37,6 +37,10 @@ async function wishlistDoc(id){ const uid = await getUid(); return doc(db, "user
 async function platformCol() { const uid = await getUid(); return collection(db, "users", uid, "platforms"); }
 async function platformDoc(id){ const uid = await getUid(); return doc(db, "users", uid, "platforms", id);   }
 
+// Community platforms — root collection, shared across all users
+const communityCol     = ()   => collection(db, "community_platforms");
+const communityDocRef  = (id) => doc(db, "community_platforms", id);
+
 function randomFilename(ext) {
   const rand = Math.random().toString(36).slice(2, 10);
   return `${rand}_${Date.now()}.${ext}`;
@@ -273,6 +277,101 @@ export async function addPlatform(fields, iconFile) {
     created_at:  serverTimestamp()
   });
   return { id: docRef.id, icon_path };
+}
+
+/* ── Community platforms (shared, root collection) ────────── */
+
+function normUrl(url) {
+  return url.replace(/^https?:\/\//i, '').replace(/\/+$/, '').toLowerCase();
+}
+
+function faviconFrom(url) {
+  const domain = normUrl(url).split('/')[0];
+  return `https://www.google.com/s2/favicons?domain=${domain}&sz=64`;
+}
+
+export async function getCommunityPlatforms(type) {
+  const snap = await getDocs(query(communityCol(), orderBy("created_at", "desc")));
+  return snap.docs
+    .map(d => ({ id: d.id, ...d.data() }))
+    .filter(p => !type || p.type === type);
+}
+
+export async function checkCommunityDuplicate(url, excludeId = null) {
+  const norm = normUrl(url);
+  const snap = await getDocs(communityCol());
+  return snap.docs.find(d => {
+    if (excludeId && d.id === excludeId) return false;
+    return d.data().url_norm === norm;
+  }) || null;
+}
+
+export async function addCommunityPlatform(fields) {
+  const uid  = await getUid();
+  const url  = (fields.url || '').startsWith('http') ? fields.url : `https://${fields.url}`;
+  const norm = normUrl(url);
+
+  // Duplicate check
+  const dup = await checkCommunityDuplicate(url);
+  if (dup) throw new Error(`DUPLICATE:${dup.data().name}`);
+
+  const docRef = await addDoc(communityCol(), {
+    type:         fields.type || 'streaming',
+    name:         fields.name || '',
+    url,
+    url_norm:     norm,
+    tags:         fields.tags || [],
+    icon_path:    faviconFrom(url),
+    visit_count:  0,
+    last_visited: null,
+    created_by:   uid,
+    created_at:   serverTimestamp(),
+  });
+  return { id: docRef.id };
+}
+
+export async function updateCommunityPlatform(docId, fields) {
+  const uid    = await getUid();
+  const docRef = communityDocRef(docId);
+  const snap   = await getDoc(docRef);
+  if (!snap.exists()) throw new Error('Platform not found');
+  if (snap.data().created_by !== uid) throw new Error('Not authorized');
+
+  const payload = { ...fields, updated_at: serverTimestamp() };
+  if (fields.url) {
+    const url  = fields.url.startsWith('http') ? fields.url : `https://${fields.url}`;
+    // Duplicate check (exclude self)
+    const dup = await checkCommunityDuplicate(url, docId);
+    if (dup) throw new Error(`DUPLICATE:${dup.data().name}`);
+    payload.url      = url;
+    payload.url_norm = normUrl(url);
+    payload.icon_path = faviconFrom(url);
+  }
+  await updateDoc(docRef, payload);
+}
+
+export async function deleteCommunityPlatform(docId) {
+  const uid    = await getUid();
+  const docRef = communityDocRef(docId);
+  const snap   = await getDoc(docRef);
+  if (!snap.exists()) throw new Error('Platform not found');
+  if (snap.data().created_by !== uid) throw new Error('Not authorized');
+  await deleteDoc(docRef);
+}
+
+export async function recordCommunityVisit(docId) {
+  const docRef = communityDocRef(docId);
+  const snap   = await getDoc(docRef);
+  if (snap.exists()) {
+    await updateDoc(docRef, {
+      visit_count:  (snap.data().visit_count || 0) + 1,
+      last_visited: serverTimestamp(),
+    });
+  }
+}
+
+export async function getCurrentUid() {
+  return getUid();
 }
 
 /* ── Public profiles ──────────────────────────────────────── */
