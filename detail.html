@@ -61,6 +61,23 @@
     }
     .btn-delete:hover{ background:rgba(192,57,43,0.35); transform:translateY(-1px); }
 
+    .btn-watch{
+      display:inline-flex; align-items:center; gap:8px;
+      padding:10px 22px; border-radius:12px; border:none;
+      background:#cc0000; color:#fff; text-decoration:none;
+      font-family:"Bungee",Arial,sans-serif; font-size:13px; cursor:pointer;
+      transition:background .15s, transform .12s, box-shadow .15s;
+    }
+    .btn-watch:hover{ background:#e00; transform:translateY(-1px); box-shadow:0 0 18px rgba(204,0,0,0.4); }
+    .btn-read{
+      display:inline-flex; align-items:center; gap:8px;
+      padding:10px 22px; border-radius:12px; border:1px solid rgba(33,150,243,0.35);
+      background:rgba(33,150,243,0.12); color:#64b5f6; text-decoration:none;
+      font-family:"Bungee",Arial,sans-serif; font-size:13px; cursor:pointer;
+      transition:background .15s, transform .12s;
+    }
+    .btn-read:hover{ background:rgba(33,150,243,0.22); transform:translateY(-1px); }
+
     /* ── SECTIONS ── */
     .section{ margin-bottom:32px; }
     .section-title{
@@ -295,6 +312,14 @@
           <div style="background:#0d0d0d;border:1px solid #1c1c1c;border-radius:10px;padding:12px;font-size:13px;color:#aaa;line-height:1.6;white-space:pre-wrap">${item.notes}</div>` : ''}
 
           <div class="actions">
+            ${['anime','movie','tv-show'].includes(item.type) ? `
+            <a class="btn-watch" href="watch.html?id=${item.id}">
+              <i class="fa-solid fa-play"></i> Watch Now
+            </a>` : ''}
+            ${['manga','manhwa','manhua','novel'].includes(item.type) && (item.site_url || (item.sources||[])[0]?.url) ? `
+            <a class="btn-read" href="${item.site_url || item.sources[0].url}" target="_blank" rel="noopener">
+              <i class="fa-solid fa-book-open"></i> Read Now
+            </a>` : ''}
             <a class="btn-edit" href="edit.html?id=${item.id}">
               <i class="fa-solid fa-pen-to-square"></i> Edit
             </a>
