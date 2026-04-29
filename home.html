@@ -154,6 +154,7 @@
 
     let activeType = '';
     let feedLoaded = false;
+    let allItems   = [];   // cached full list — filtered client-side
 
     function timeAgo(ts) {
       if (!ts) return '';
@@ -224,7 +225,7 @@
         feedPanel.style.display  = isFeed ? '' : 'none';
 
         if (isFeed) { loadFeed(); }
-        else load();
+        else filterAndRender();
       });
     });
 
@@ -242,13 +243,32 @@
       }
     }
 
+    // Fetch all items once and cache — re-fetch only on explicit Search click
     async function load(){
       showSkeletons();
-      const items = await getWishlist({
-        q:      q.value.trim(),
-        type:   activeType,
-        status: statusSel ? statusSel.value : ""
+      allItems = await getWishlist();   // no server-side filters; filter client-side
+      filterAndRender();
+    }
+
+    // Client-side filter + render from cache
+    function filterAndRender() {
+      const qVal     = (q?.value || '').trim().toLowerCase();
+      const typeVal  = activeType;
+      const statusVal = statusSel?.value || '';
+
+      let items = allItems;
+      if (qVal)      items = items.filter(i =>
+        (i.title  || '').toLowerCase().includes(qVal) ||
+        (i.genre  || '').toLowerCase().includes(qVal)
+      );
+      if (typeVal)   items = items.filter(i => (i.type   || '').toLowerCase() === typeVal);
+      if (statusVal) items = items.filter(i => {
+        const s = (i.status || '').toLowerCase();
+        // map legacy values
+        const mapped = s === 'ongoing' ? 'watching' : s === 'hiatus' ? 'on_hold' : s;
+        return mapped === statusVal;
       });
+
       render(items);
     }
 
@@ -305,9 +325,21 @@
       // cards are <a> tags now — native navigation handles it
     });
 
+    // Refresh from Firestore on Search button click
     if (btn) btn.addEventListener('click', load);
-    if (q) q.addEventListener('keydown', (e)=>{ if(e.key === 'Enter') load(); });
-    if (statusSel) statusSel.addEventListener('change', load);
+
+    // Live search — debounced 250 ms
+    let _searchTimer;
+    if (q) {
+      q.addEventListener('input', () => {
+        clearTimeout(_searchTimer);
+        _searchTimer = setTimeout(filterAndRender, 250);
+      });
+      q.addEventListener('keydown', (e) => { if (e.key === 'Enter') filterAndRender(); });
+    }
+
+    // Status dropdown — instant filter from cache
+    if (statusSel) statusSel.addEventListener('change', filterAndRender);
 
     load();
   </script>
