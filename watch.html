@@ -109,16 +109,16 @@
         </div>
         <div class="watch-server-btns">
           <span class="watch-server-label">SERVER:</span>
-          <button class="watch-srv-btn active" id="srv1"  onclick="switchServer(1)">Server 1</button>
-          <button class="watch-srv-btn"        id="srv2"  onclick="switchServer(2)">Server 2</button>
-          <button class="watch-srv-btn"        id="srv3"  onclick="switchServer(3)">Server 3</button>
-          <button class="watch-srv-btn"        id="srv5"  onclick="switchServer(5)">Server 4</button>
-          <button class="watch-srv-btn"        id="srv6"  onclick="switchServer(6)">Server 5</button>
           <button class="watch-srv-btn"        id="srv4"  onclick="switchServer(4)" style="display:none"><i class="fa-solid fa-dragon"></i> Anime</button>
           <div class="dub-toggle" id="dubToggle" style="display:none">
             <button class="dub-btn active" id="btnSub" onclick="setDub(false)">SUB</button>
             <button class="dub-btn"        id="btnDub" onclick="setDub(true)">DUB</button>
           </div>
+          <button class="watch-srv-btn active" id="srv1"  onclick="switchServer(1)">Server 1</button>
+          <button class="watch-srv-btn"        id="srv2"  onclick="switchServer(2)">Server 2</button>
+          <button class="watch-srv-btn"        id="srv3"  onclick="switchServer(3)">Server 3</button>
+          <button class="watch-srv-btn"        id="srv5"  onclick="switchServer(5)">Server 4</button>
+          <button class="watch-srv-btn"        id="srv6"  onclick="switchServer(6)">Server 5</button>
           <button class="watch-srv-btn"        id="srvYT" onclick="tryYouTube()"><i class="fa-brands fa-youtube"></i> Trailer</button>
         </div>
       </div>
@@ -281,11 +281,15 @@
       // Show subtitle bar for all types
       document.getElementById('subBar').style.display = '';
 
-      // Fetch MAL ID for anime — enables Anime server (megaplay)
+      // Fetch MAL ID for anime — enables Anime server (megaplay) and makes it default
       if (item.type === 'anime') {
         getMalId(item.title).then(id => {
           malId = id;
-          if (id) document.getElementById('srv4').style.display = '';
+          if (id) {
+            document.getElementById('srv4').style.display = '';
+            // Auto-switch to Anime server as default for anime content
+            switchServer(4);
+          }
         });
       }
     }
