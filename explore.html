@@ -618,6 +618,7 @@
     }
 
     async function loadTrending(){
+      hasNext = false; // no pagination on trending — prevent scroll listener from re-triggering
       grid.innerHTML = '';
       hideState();
       hideScrollLoader();
