@@ -130,11 +130,8 @@
           <button class="sub-lang-btn" onclick="searchSubs('ar')">AR</button>
           <button class="sub-lang-btn" onclick="searchSubs('fr')">FR</button>
           <button class="sub-lang-btn" onclick="searchSubs('es')">ES</button>
-          <span class="sub-status" id="subStatus">Pick a language to load subtitles.</span>
-        </div>
-        <div class="sub-bar-row" id="subFileRow" style="display:none">
-          <span class="sub-label">FILE:</span>
-          <div id="subFileList" style="display:flex;gap:6px;flex-wrap:wrap;"></div>
+          <button class="sub-lang-btn" onclick="searchSubs('ja')">JA</button>
+          <span class="sub-status" id="subStatus">Pick a language — subtitles load automatically.</span>
         </div>
         <div class="sub-bar-row" id="subTimerRow" style="display:none">
           <span class="sub-label">SYNC:</span>
@@ -786,15 +783,13 @@
     }
 
     window.searchSubs = async function(lang) {
-      // Mark active lang button
-      document.querySelectorAll('.sub-lang-btn').forEach(b => b.classList.remove('active'));
-      document.querySelectorAll('.sub-lang-btn').forEach(b => {
-        if (b.textContent === lang.toUpperCase()) b.classList.add('active');
-      });
-
+      // Highlight active language button
+      document.querySelectorAll('.sub-lang-btn').forEach(b =>
+        b.classList.toggle('active', b.textContent === lang.toUpperCase())
+      );
       setSubStatus('Searching…');
-      document.getElementById('subFileRow').style.display = 'none';
       document.getElementById('subTimerRow').style.display = 'none';
+      resetSubSync();
 
       try {
         let url = `/api/subdl?action=search&lang=${lang}`;
@@ -811,53 +806,37 @@
         const subs = data.subtitles || [];
         if (!subs.length) { setSubStatus('No subtitles found for this language.', 'err'); return; }
 
-        setSubStatus(`${subs.length} subtitle(s) found.`, 'ok');
-        const listEl = document.getElementById('subFileList');
-        listEl.innerHTML = '';
-        subs.slice(0, 6).forEach((s, i) => {
-          const btn = document.createElement('button');
-          btn.className   = 'sub-ctrl-btn';
-          btn.textContent = s.release_name ? s.release_name.slice(0, 30) : `File ${i+1}`;
-          btn.title       = s.release_name || '';
-          btn.onclick     = () => loadSubFile(s.url, btn);
-          listEl.appendChild(btn);
-        });
-        document.getElementById('subFileRow').style.display = '';
+        // Auto-load the first (best) result — no manual file picking needed
+        setSubStatus('Loading subtitles…');
+        await loadSubFile(subs[0].url);
       } catch(e) {
-        setSubStatus('Search failed. Check SUBDL_KEY in Vercel env vars.', 'err');
+        setSubStatus('Failed. Make sure SUBDL_KEY is set in Vercel environment variables.', 'err');
       }
     };
 
-    window.loadSubFile = async function(path, btn) {
-      document.querySelectorAll('#subFileList .sub-ctrl-btn').forEach(b => b.classList.remove('active'));
-      if (btn) btn.classList.add('active');
-      setSubStatus('Downloading subtitle…');
-      resetSubSync();
-
+    async function loadSubFile(path) {
       try {
         const res = await fetch(`/api/subdl?action=download&path=${encodeURIComponent(path)}`);
         if (!res.ok) throw new Error(res.status);
         const buffer = await res.arrayBuffer();
 
         const zip   = await JSZip.loadAsync(buffer);
-        // Find first .srt or .ass file
         const names = Object.keys(zip.files);
-        const srtName = names.find(n => n.toLowerCase().endsWith('.srt'))
-                     || names.find(n => n.toLowerCase().endsWith('.ass'))
-                     || names.find(n => n.toLowerCase().endsWith('.ssa'));
-        if (!srtName) { setSubStatus('No SRT/ASS file found in ZIP.', 'err'); return; }
+        const srtName = names.find(n => /\.srt$/i.test(n))
+                     || names.find(n => /\.(ass|ssa)$/i.test(n));
+        if (!srtName) { setSubStatus('No subtitle file found in package.', 'err'); return; }
 
         const text = await zip.files[srtName].async('string');
         subCues = parseSRT(text);
-        if (!subCues.length) { setSubStatus('Could not parse subtitle file.', 'err'); return; }
+        if (!subCues.length) { setSubStatus('Could not read subtitle file.', 'err'); return; }
 
-        setSubStatus(`Loaded ${subCues.length} cues. Press Start when video plays.`, 'ok');
+        setSubStatus(`Ready — ${subCues.length} lines. Press Start when the video begins.`, 'ok');
         document.getElementById('subTimerRow').style.display = '';
         document.getElementById('subDisplay').style.display = '';
       } catch(e) {
-        setSubStatus(`Download failed: ${e.message}`, 'err');
+        setSubStatus(`Could not load subtitle: ${e.message}`, 'err');
       }
-    };
+    }
 
     // SRT parser
     function parseSRT(text) {
