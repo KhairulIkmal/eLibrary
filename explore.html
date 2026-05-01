@@ -1012,14 +1012,15 @@
       _searchTimer = setTimeout(() => { curPage=1; curOffset=0; doLoad(false); }, 500);
     });
 
-    // Infinite scroll — trigger next page when sentinel enters viewport
-    const scrollObserver = new IntersectionObserver((entries) => {
-      if (entries[0].isIntersecting && hasNext && !loading) {
+    // Infinite scroll — trigger next page when user scrolls near bottom
+    window.addEventListener('scroll', () => {
+      if (loading || !hasNext) return;
+      const nearBottom = window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 400;
+      if (nearBottom) {
         if (['manhwa','manhua','manga'].includes(activeTab)) { doLoad(true); }
         else { curPage++; doLoad(true); }
       }
-    }, { rootMargin: '300px' }); // start loading 300px before sentinel is reached
-    scrollObserver.observe(scrollSentinel);
+    }, { passive: true });
 
     /* ══════════════════════════════════════════════════
        INIT
