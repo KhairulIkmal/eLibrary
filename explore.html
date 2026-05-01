@@ -624,10 +624,13 @@
       hideScrollLoader();
       sectionLbl.textContent = 'Trending This Week';
 
-      // Load all three in parallel, render in sections
-      const [animeData, mdxData, tmdbData] = await Promise.allSettled([
+      // Load all five in parallel, render in sections
+      const MDX_BASE_TRENDING = `${MDX_BASE}/manga?limit=8&offset=0&includes[]=cover_art&contentRating[]=safe&contentRating[]=suggestive&order[followedCount]=desc`;
+      const [animeData, manhwaData, manhuaData, mangaData, tmdbData] = await Promise.allSettled([
         safeFetch(`${JIKAN_BASE}/top/anime?page=1&limit=8&filter=airing`),
-        safeFetch(`${MDX_BASE}/manga?limit=8&offset=0&includes[]=cover_art&contentRating[]=safe&contentRating[]=suggestive&order[followedCount]=desc`),
+        safeFetch(`${MDX_BASE_TRENDING}&originalLanguage[]=ko`),
+        safeFetch(`${MDX_BASE_TRENDING}&originalLanguage[]=zh`),
+        safeFetch(`${MDX_BASE_TRENDING}&originalLanguage[]=ja`),
         safeFetch(`/api/tmdb?path=trending/all/week&language=en-US`),
       ]);
 
@@ -652,11 +655,13 @@
         });
       }
 
-      if (animeData.status === 'fulfilled') renderSection('🔥 Trending Anime', (animeData.value.data||[]).map(normalizeJikan));
-      if (mdxData.status   === 'fulfilled') renderSection('📚 Trending Manga', (mdxData.value.data||[]).map(it=>normalizeMDX(it,'manga')));
-      if (tmdbData.status  === 'fulfilled') {
+      if (animeData.status  === 'fulfilled') renderSection('Trending Anime',  (animeData.value.data||[]).map(normalizeJikan));
+      if (manhwaData.status === 'fulfilled') renderSection('Trending Manhwa', (manhwaData.value.data||[]).map(it=>normalizeMDX(it,'manhwa')));
+      if (manhuaData.status === 'fulfilled') renderSection('Trending Manhua', (manhuaData.value.data||[]).map(it=>normalizeMDX(it,'manhua')));
+      if (mangaData.status  === 'fulfilled') renderSection('Trending Manga',  (mangaData.value.data||[]).map(it=>normalizeMDX(it,'manga')));
+      if (tmdbData.status   === 'fulfilled') {
         const movies = (tmdbData.value.results||[]).filter(r=>r.media_type==='movie'||!r.media_type).slice(0,8).map(normalizeTMDB);
-        if (movies.length) renderSection('🎬 Trending Movies', movies);
+        if (movies.length) renderSection('Trending Movies', movies);
       }
 
       if (!grid.children.length) showState('fa-face-frown','Could not load trending data.');
