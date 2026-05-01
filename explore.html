@@ -867,6 +867,20 @@
         addPanel.scrollIntoView({ behavior:'smooth', block:'nearest' });
       });
 
+      // Check if already in library — disable button if duplicate
+      if (typeof window._checkWishlistExists === 'function') {
+        window._checkWishlistExists(it.title).then(exists => {
+          const btn = document.getElementById('openAddBtn');
+          if (!btn) return;
+          if (exists) {
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fa-solid fa-check"></i> In Library';
+            btn.style.opacity = '0.6';
+            btn.style.cursor  = 'not-allowed';
+          }
+        }).catch(() => {});
+      }
+
       detailModal.classList.add('active');
       document.body.style.overflow = 'hidden';
     }
@@ -1016,8 +1030,11 @@
 
   <!-- Firebase save (module script) -->
   <script type="module">
-    import { addWishlistItemFromUrl } from "./js/firebase-service.js";
+    import { addWishlistItemFromUrl, checkWishlistTitleExists } from "./js/firebase-service.js";
     import { showToast } from "./js/toast.js";
+
+    // Expose duplicate checker so the non-module explore script can call it
+    window._checkWishlistExists = checkWishlistTitleExists;
 
     const saveBtn  = document.getElementById('addSaveBtn');
     const addMsg   = document.getElementById('addMsg');
@@ -1031,6 +1048,12 @@
       const cover  = document.getElementById('addCover').src;
 
       if (!title){ showToast('Title is required.', 'error'); return; }
+
+      // Guard: prevent duplicate
+      try {
+        const exists = await checkWishlistTitleExists(title);
+        if (exists) { showToast(`"${title}" is already in your library.`, 'error'); return; }
+      } catch(_) {} // if check fails, allow save to proceed
 
       saveBtn.disabled = true;
       saveBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Saving...';

@@ -692,6 +692,14 @@ export async function batchImportWishlist(items) {
   return total;
 }
 
+/* ── Duplicate check ────────────────────────────────────── */
+
+export async function checkWishlistTitleExists(title) {
+  if (!title) return false;
+  const snap = await getDocs(query(await wishlistCol(), where('title', '==', title), limit(1)));
+  return !snap.empty;
+}
+
 /* ── Stats ──────────────────────────────────────────────── */
 
 export async function getStats() {
