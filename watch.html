@@ -761,7 +761,7 @@
         btn.className = 'ep-btn' +
           (ep === curEp          ? ' current' : '') +
           (ep <= watched && ep !== curEp ? ' watched' : '');
-        btn.textContent = `Ep ${ep}`;
+        btn.textContent = ep;
         const epNum = ep;
         btn.addEventListener('click', () => {
           curEp = epNum;
@@ -773,10 +773,6 @@
         });
         grid.appendChild(btn);
       }
-
-      // Scroll current episode into view inside the list
-      const cur = grid.querySelector('.ep-btn.current');
-      if (cur) cur.scrollIntoView({ block: 'nearest' });
     }
 
     function refreshEpGrid() {
