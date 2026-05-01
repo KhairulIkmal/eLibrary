@@ -813,6 +813,16 @@
         card.addEventListener('click', () => openModal(it));
         grid.appendChild(card);
       });
+
+      // If content doesn't fill the viewport yet, auto-load next page
+      if (hasNext) {
+        requestAnimationFrame(() => {
+          if (document.documentElement.scrollHeight <= window.innerHeight + 50) {
+            if (['manhwa','manhua','manga'].includes(activeTab)) { doLoad(true); }
+            else { curPage++; doLoad(true); }
+          }
+        });
+      }
     }
 
     /* ══════════════════════════════════════════════════
