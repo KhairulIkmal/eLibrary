@@ -70,6 +70,7 @@
     friends:  page.includes('friends'),
     calendar: page.includes('calendar'),
     import:   page.includes('import'),
+    stats:    page.includes('stats'),
   };
 
   const links = [
@@ -80,6 +81,7 @@
     { href: 'friends.html',  label: 'Friends',         icon: 'fa-user-group',    key: 'friends'  },
     { href: 'calendar.html', label: 'Calendar',        icon: 'fa-calendar-days', key: 'calendar' },
     { href: 'import.html',   label: 'Import',          icon: 'fa-file-import',   key: 'import'   },
+    { href: 'stats.html',    label: 'Stats',           icon: 'fa-chart-bar',     key: 'stats'    },
   ];
 
   const logoSvg = `

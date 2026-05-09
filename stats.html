@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <link rel="icon" type="image/jpeg" href="main.jpg" />
+  <title>Stats — My E-Library</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link href="css/site.css" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Bungee&display=swap" rel="stylesheet" />
+  <script src="https://kit.fontawesome.com/3c6e6d7c17.js" crossorigin="anonymous"></script>
+  <style>
+    :root{ --bg:#000; --accent:#ff000086; --card:#111; --text:#f5f5f5; --muted:#777; }
+    body{ margin:0; background:var(--bg); color:var(--text); font-family:"Bungee",Arial,sans-serif; min-height:100vh; }
+    .wrap{ padding:24px 22px 60px; max-width:900px; margin:0 auto; }
+    .page-title{ font-size:20px; margin:0 0 24px; display:flex; align-items:center; gap:10px; }
+    .page-title i{ color:rgba(255,0,0,.6); }
+    /* Stat cards row */
+    .stat-row{ display:grid; grid-template-columns:repeat(auto-fill,minmax(160px,1fr)); gap:14px; margin-bottom:24px; }
+    .stat-card{ background:#111; border:1px solid #1b1b1b; border-radius:16px; padding:18px 16px; text-align:center; }
+    .stat-num{ font-size:28px; color:#fff; margin:0 0 4px; }
+    .stat-lbl{ font-size:10px; color:#555; letter-spacing:1.2px; text-transform:uppercase; margin:0; }
+    .stat-card.accent{ border-color:rgba(255,0,0,.2); background:rgba(255,0,0,.05); }
+    .stat-card.accent .stat-num{ color:#ff9999; }
+    .stat-card.gold .stat-num{ color:#f5c518; }
+    .stat-card.gold{ border-color:rgba(245,197,24,.15); background:rgba(245,197,24,.03); }
+    .stat-card.green .stat-num{ color:#4caf50; }
+    .stat-card.green{ border-color:rgba(76,175,80,.15); background:rgba(76,175,80,.03); }
+    /* Section */
+    .section{ margin-bottom:28px; }
+    .section-title{ font-size:11px; color:#444; letter-spacing:1.5px; text-transform:uppercase; margin:0 0 14px; display:flex; align-items:center; gap:10px; }
+    .section-title::after{ content:''; flex:1; height:1px; background:#1a1a1a; }
+    /* Genre bars */
+    .genre-bar-row{ display:flex; align-items:center; gap:10px; margin-bottom:8px; }
+    .genre-bar-lbl{ font-size:10px; color:#888; min-width:80px; text-align:right; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .genre-bar-track{ flex:1; height:6px; background:#1a1a1a; border-radius:999px; overflow:hidden; }
+    .genre-bar-fill{ height:100%; background:linear-gradient(90deg,#cc0000,rgba(255,0,0,.5)); border-radius:999px; transition:width .6s ease; }
+    /* Type chips */
+    .type-chips{ display:flex; flex-wrap:wrap; gap:8px; }
+    .type-chip{ padding:6px 14px; border-radius:999px; font-size:11px; border:1px solid #222; background:#111; display:flex; align-items:center; gap:6px; }
+    .type-chip-count{ color:#ff9999; }
+    /* Streak */
+    .streak-row{ display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+    .streak-card{ background:#111; border:1px solid #1b1b1b; border-radius:14px; padding:18px; text-align:center; }
+    .streak-num{ font-size:36px; color:#ff9999; }
+    .streak-lbl{ font-size:10px; color:#555; letter-spacing:1.2px; text-transform:uppercase; margin-top:4px; }
+    .streak-icon{ font-size:20px; margin-bottom:6px; }
+    /* Completion ring */
+    .completion-wrap{ display:flex; align-items:center; gap:20px; }
+    .ring-svg{ width:80px; height:80px; flex-shrink:0; }
+    .ring-bg{ fill:none; stroke:#1a1a1a; stroke-width:8; }
+    .ring-fill{ fill:none; stroke:#cc0000; stroke-width:8; stroke-linecap:round; transform:rotate(-90deg); transform-origin:50% 50%; transition:stroke-dashoffset .8s ease; }
+    .ring-label{ font-size:13px; color:#fff; text-anchor:middle; dominant-baseline:middle; }
+    .completion-info{ flex:1; }
+    .completion-info p{ margin:0 0 6px; font-size:12px; color:#888; }
+    .completion-info strong{ color:#fff; }
+    /* Loading */
+    .loading{ text-align:center; padding:60px 20px; color:#444; font-size:12px; }
+  </style>
+</head>
+<body>
+  <script type="module" src="js/auth-guard.js"></script>
+  <nav id="app-nav"></nav>
+  <script src="js/nav.js" defer></script>
+
+  <div class="wrap">
+    <p class="page-title"><i class="fa-solid fa-chart-bar"></i> My Stats</p>
+    <div id="statsContent"><div class="loading"><i class="fa-solid fa-spinner fa-spin" style="font-size:24px;margin-bottom:12px;display:block;"></i>Loading your stats...</div></div>
+  </div>
+
+  <script type="module">
+    import { getStats } from "./js/firebase-service.js";
+
+    async function render() {
+      const s = await getStats();
+      const completionPct = s.totalItems ? Math.round((s.completedCount / s.totalItems) * 100) : 0;
+
+      // Completion ring math (circumference of r=34 circle = 213.6)
+      const circ = 2 * Math.PI * 34;
+      const offset = circ - (completionPct / 100) * circ;
+
+      // Top genres (max 10)
+      const topGenres = Object.entries(s.genreBreakdown)
+        .sort((a,b) => b[1]-a[1]).slice(0,10);
+      const maxGenre = topGenres[0]?.[1] || 1;
+
+      // Type icons
+      const typeIcon = { anime:'fa-tv', movie:'fa-film', manhwa:'fa-book-open', manhua:'fa-book', manga:'fa-scroll', novel:'fa-feather' };
+
+      document.getElementById('statsContent').innerHTML = `
+        <!-- Quick stats -->
+        <div class="stat-row">
+          <div class="stat-card accent">
+            <p class="stat-num">${s.totalItems}</p>
+            <p class="stat-lbl">Total Items</p>
+          </div>
+          <div class="stat-card green">
+            <p class="stat-num">${s.completedCount}</p>
+            <p class="stat-lbl">Completed</p>
+          </div>
+          <div class="stat-card">
+            <p class="stat-num">${s.droppedCount}</p>
+            <p class="stat-lbl">Dropped</p>
+          </div>
+          <div class="stat-card gold">
+            <p class="stat-num">${s.totalHoursWatched}h</p>
+            <p class="stat-lbl">Hours Watched</p>
+          </div>
+          <div class="stat-card gold">
+            <p class="stat-num">${s.avgRating ?? '—'}</p>
+            <p class="stat-lbl">Avg Rating</p>
+          </div>
+          <div class="stat-card">
+            <p class="stat-num">${s.ratedCount}</p>
+            <p class="stat-lbl">Rated Items</p>
+          </div>
+        </div>
+
+        <!-- Streak -->
+        <div class="section">
+          <p class="section-title"><i class="fa-solid fa-fire"></i> Streaks</p>
+          <div class="streak-row">
+            <div class="streak-card">
+              <div class="streak-icon">🔥</div>
+              <div class="streak-num">${s.currentStreak}</div>
+              <div class="streak-lbl">Current Streak (days)</div>
+            </div>
+            <div class="streak-card">
+              <div class="streak-icon">🏆</div>
+              <div class="streak-num">${s.longestStreak}</div>
+              <div class="streak-lbl">Longest Streak (days)</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Completion rate -->
+        <div class="section">
+          <p class="section-title"><i class="fa-solid fa-circle-check"></i> Completion Rate</p>
+          <div class="completion-wrap">
+            <svg class="ring-svg" viewBox="0 0 80 80">
+              <circle class="ring-bg" cx="40" cy="40" r="34"/>
+              <circle class="ring-fill" cx="40" cy="40" r="34"
+                stroke-dasharray="${circ}"
+                stroke-dashoffset="${offset}"/>
+              <text class="ring-label" x="40" y="40" font-family="Bungee,Arial" font-size="13" fill="#fff">${completionPct}%</text>
+            </svg>
+            <div class="completion-info">
+              <p><strong>${s.completedCount}</strong> completed out of <strong>${s.totalItems}</strong> total</p>
+              <p><strong>${s.droppedCount}</strong> dropped &nbsp;·&nbsp; <strong>${s.totalItems - s.completedCount - s.droppedCount}</strong> in progress / planning</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Type breakdown -->
+        <div class="section">
+          <p class="section-title"><i class="fa-solid fa-layer-group"></i> By Type</p>
+          <div class="type-chips">
+            ${Object.entries(s.typeBreakdown).sort((a,b)=>b[1]-a[1]).map(([type,cnt])=>`
+              <div class="type-chip">
+                <i class="fa-solid ${typeIcon[type]||'fa-bookmark'}"></i>
+                ${type.toUpperCase()} <span class="type-chip-count">${cnt}</span>
+              </div>`).join('')}
+          </div>
+        </div>
+
+        <!-- Genre breakdown -->
+        ${topGenres.length ? `
+        <div class="section">
+          <p class="section-title"><i class="fa-solid fa-tags"></i> Top Genres</p>
+          ${topGenres.map(([g,cnt])=>`
+            <div class="genre-bar-row">
+              <span class="genre-bar-lbl">${g}</span>
+              <div class="genre-bar-track">
+                <div class="genre-bar-fill" style="width:${Math.round((cnt/maxGenre)*100)}%"></div>
+              </div>
+              <span style="font-size:10px;color:#444;min-width:24px;text-align:right;">${cnt}</span>
+            </div>`).join('')}
+        </div>` : ''}
+      `;
+    }
+
+    render().catch(e => {
+      document.getElementById('statsContent').innerHTML = `<div class="loading">Failed to load stats: ${e.message}</div>`;
+    });
+  </script>
+</body>
+</html>

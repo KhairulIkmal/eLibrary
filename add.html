@@ -43,6 +43,7 @@
         <label>Title</label>
         <input name="title" required>
         <span class="field-error" id="err-title"></span>
+        <div id="dupWarn" style="display:none;font-size:11px;color:#f5a623;margin-top:4px;padding:6px 10px;background:rgba(245,166,35,.08);border:1px solid rgba(245,166,35,.2);border-radius:8px;"></div>
       </div>
       <div>
         <label>Type</label>
@@ -162,7 +163,7 @@
   </script>
 
   <script type="module">
-    import { addWishlistItem } from "./js/firebase-service.js";
+    import { addWishlistItem, checkWishlistTitleExists, getWishlistItemIdByTitle } from "./js/firebase-service.js";
     import { showToast } from "./js/toast.js";
 
     const form      = document.getElementById('f');
@@ -186,11 +187,26 @@
     });
 
     // Blur validation
-    form.title.addEventListener('blur', () => {
+    form.title.addEventListener('blur', async () => {
       const empty = !form.title.value.trim();
       document.getElementById('err-title').textContent = empty ? 'Title is required.' : '';
       form.title.classList.toggle('invalid', empty);
+      const val = form.title.value.trim();
+      if (val) {
+        try {
+          const docId = await getWishlistItemIdByTitle(val);
+          const warn  = document.getElementById('dupWarn');
+          if (docId) {
+            warn.innerHTML = `<i class="fa-solid fa-triangle-exclamation"></i> Already in your library. <a href="detail.html?id=${docId}" style="color:#ff9999;">View it →</a>`;
+            warn.style.display = '';
+          } else {
+            warn.style.display = 'none';
+            warn.innerHTML = '';
+          }
+        } catch(_) {}
+      }
     });
+    form.title.addEventListener('input', () => { const w=document.getElementById('dupWarn'); if(w){w.style.display='none';w.innerHTML='';} });
     coverFile.addEventListener('blur', () => {
       const empty = !coverFile.files.length;
       document.getElementById('err-cover').textContent = empty ? 'Cover image is required.' : '';

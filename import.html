@@ -135,6 +135,13 @@
       <p>Import your anime / manga list from MyAnimeList or AniList directly into your library.</p>
     </div>
 
+    <!-- Tab buttons -->
+    <div style="display:flex;gap:8px;margin-bottom:20px;">
+      <button id="tabImport" onclick="switchTab('import')" style="padding:8px 18px;border-radius:10px;border:none;background:rgba(255,0,0,0.15);border:1px solid rgba(255,0,0,0.3);color:#ff9999;font-family:'Bungee',Arial,sans-serif;font-size:12px;cursor:pointer;">Import</button>
+      <button id="tabExport" onclick="switchTab('export')" style="padding:8px 18px;border-radius:10px;border:1px solid #222;background:transparent;color:#555;font-family:'Bungee',Arial,sans-serif;font-size:12px;cursor:pointer;">Export</button>
+    </div>
+
+    <div id="importPanel">
     <!-- Format selector -->
     <div class="fmt-row">
       <button class="fmt-btn active" data-fmt="mal">
@@ -197,11 +204,78 @@
         <div id="previewRows"></div>
       </div>
     </div>
+    </div>
+
+    <div id="exportPanel" style="display:none;">
+      <p style="font-size:12px;color:#777;margin:0 0 18px;line-height:1.8;">Download your full library as JSON or CSV. JSON preserves all fields. CSV works with Excel/Sheets.</p>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;">
+        <button id="exportJsonBtn" style="display:inline-flex;align-items:center;gap:8px;padding:10px 20px;border-radius:12px;background:rgba(255,0,0,0.1);border:1px solid rgba(255,0,0,0.3);color:#ff9999;font-family:'Bungee',Arial,sans-serif;font-size:12px;cursor:pointer;">
+          <i class="fa-solid fa-file-code"></i> Download JSON
+        </button>
+        <button id="exportCsvBtn" style="display:inline-flex;align-items:center;gap:8px;padding:10px 20px;border-radius:12px;background:#111;border:1px solid #222;color:#ccc;font-family:'Bungee',Arial,sans-serif;font-size:12px;cursor:pointer;">
+          <i class="fa-solid fa-file-csv"></i> Download CSV
+        </button>
+      </div>
+      <div id="exportMsg" style="margin-top:12px;font-size:11px;color:#555;"></div>
+    </div>
   </div>
 
   <script type="module">
-    import { batchImportWishlist } from "./js/firebase-service.js";
+    import { batchImportWishlist, getWishlist } from "./js/firebase-service.js";
     import { showToast }           from "./js/toast.js";
+
+    function switchTab(tab) {
+      document.getElementById('importPanel').style.display = tab === 'import' ? '' : 'none';
+      document.getElementById('exportPanel').style.display = tab === 'export' ? '' : 'none';
+      document.getElementById('tabImport').style.cssText = tab==='import'
+        ? 'padding:8px 18px;border-radius:10px;border:1px solid rgba(255,0,0,0.3);background:rgba(255,0,0,0.15);color:#ff9999;font-family:"Bungee",Arial,sans-serif;font-size:12px;cursor:pointer;'
+        : 'padding:8px 18px;border-radius:10px;border:1px solid #222;background:transparent;color:#555;font-family:"Bungee",Arial,sans-serif;font-size:12px;cursor:pointer;';
+      document.getElementById('tabExport').style.cssText = tab==='export'
+        ? 'padding:8px 18px;border-radius:10px;border:1px solid rgba(255,0,0,0.3);background:rgba(255,0,0,0.15);color:#ff9999;font-family:"Bungee",Arial,sans-serif;font-size:12px;cursor:pointer;'
+        : 'padding:8px 18px;border-radius:10px;border:1px solid #222;background:transparent;color:#555;font-family:"Bungee",Arial,sans-serif;font-size:12px;cursor:pointer;';
+    }
+    window.switchTab = switchTab;
+
+    function downloadFile(content, filename, mime) {
+      const blob = new Blob([content], { type: mime });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = filename;
+      a.click();
+      URL.revokeObjectURL(a.href);
+    }
+
+    document.getElementById('exportJsonBtn').addEventListener('click', async () => {
+      const msg = document.getElementById('exportMsg');
+      msg.textContent = 'Fetching library...';
+      try {
+        const items = await getWishlist();
+        const data = items.map(i => ({
+          title: i.title, type: i.type, genre: i.genre, status: i.status,
+          progress_current: i.progress_current, progress_total: i.progress_total,
+          rating: i.rating, notes: i.notes, last_chapter: i.last_chapter,
+          site_url: i.site_url, sources: i.sources, cover_path: i.cover_path,
+        }));
+        downloadFile(JSON.stringify(data, null, 2), 'elibrary-export.json', 'application/json');
+        msg.textContent = `Exported ${data.length} items.`;
+      } catch(e) { msg.textContent = 'Export failed: ' + e.message; }
+    });
+
+    document.getElementById('exportCsvBtn').addEventListener('click', async () => {
+      const msg = document.getElementById('exportMsg');
+      msg.textContent = 'Fetching library...';
+      try {
+        const items = await getWishlist();
+        const esc = v => `"${String(v||'').replace(/"/g,'""')}"`;
+        const header = 'Title,Type,Genre,Status,Progress,Total,Rating,Notes';
+        const rows = items.map(i => [
+          esc(i.title), esc(i.type), esc(i.genre), esc(i.status),
+          esc(i.progress_current), esc(i.progress_total), esc(i.rating), esc(i.notes)
+        ].join(','));
+        downloadFile([header, ...rows].join('\n'), 'elibrary-export.csv', 'text/csv');
+        msg.textContent = `Exported ${items.length} items.`;
+      } catch(e) { msg.textContent = 'Export failed: ' + e.message; }
+    });
 
     let fmt         = 'mal';
     let parsedItems = [];
