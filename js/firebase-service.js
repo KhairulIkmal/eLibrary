@@ -249,7 +249,7 @@ export async function recordPlatformVisit(docId) {
 /* Adds a wishlist item using an external cover URL (no file upload needed) */
 export async function addWishlistItemFromUrl(fields, coverUrl) {
   const now = serverTimestamp();
-  await addDoc(await wishlistCol(), {
+  const docRef = await addDoc(await wishlistCol(), {
     title:            fields.title            || "",
     type:             fields.type             || "",
     genre:            fields.genre            || "",
@@ -269,7 +269,15 @@ export async function addWishlistItemFromUrl(fields, coverUrl) {
     created_at:       now,
     updated_at:       now,
   });
-  logActivity('added', { itemId: '', itemTitle: fields.title || '', itemType: fields.type || '', coverPath: coverUrl || '' }).catch(() => {});
+  logActivity('added', { itemId: docRef.id, itemTitle: fields.title || '', itemType: fields.type || '', coverPath: coverUrl || '' }).catch(() => {});
+  return docRef.id;
+}
+
+/* Returns the doc ID of a wishlist item matching the given title, or null */
+export async function getWishlistItemIdByTitle(title) {
+  if (!title) return null;
+  const snap = await getDocs(query(await wishlistCol(), where('title', '==', title), limit(1)));
+  return snap.empty ? null : snap.docs[0].id;
 }
 
 export async function addPlatform(fields, iconFile) {

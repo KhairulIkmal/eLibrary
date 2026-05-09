@@ -849,6 +849,7 @@
     const addPanel     = document.getElementById('addPanel');
 
     function openModal(it){
+      window._currentExploreItem = it;
       addPanel.classList.remove('open');
       document.getElementById('addMsg').textContent = '';
 
@@ -871,6 +872,7 @@
             <div class="mal-actions">
               ${it.url ? `<a class="mal-link" href="${esc(it.url)}" target="_blank" rel="noopener"><i class="fa-solid fa-arrow-up-right-from-square"></i> View Source</a>` : ''}
               <button class="mal-link add" id="openAddBtn"><i class="fa-solid fa-plus"></i> Add to Library</button>
+              <button class="mal-link" id="watchNowBtn" style="background:rgba(255,0,0,0.18);border-color:rgba(255,0,0,0.4);color:#fff;"><i class="fa-solid fa-play"></i> Watch Now</button>
             </div>
           </div>
         </div>
@@ -891,6 +893,10 @@
         document.getElementById('addSaveBtn').innerHTML = '<i class="fa-solid fa-plus"></i> Add';
         addPanel.classList.add('open');
         addPanel.scrollIntoView({ behavior:'smooth', block:'nearest' });
+      });
+
+      document.getElementById('watchNowBtn').addEventListener('click', () => {
+        if (typeof window._doWatchNow === 'function') window._doWatchNow();
       });
 
       // Check if already in library — disable button if duplicate
@@ -1057,7 +1063,7 @@
 
   <!-- Firebase save (module script) -->
   <script type="module">
-    import { addWishlistItemFromUrl, checkWishlistTitleExists } from "./js/firebase-service.js";
+    import { addWishlistItemFromUrl, checkWishlistTitleExists, getWishlistItemIdByTitle } from "./js/firebase-service.js";
     import { showToast } from "./js/toast.js";
 
     // Expose duplicate checker so the non-module explore script can call it
@@ -1104,6 +1110,36 @@
         saveBtn.innerHTML = '<i class="fa-solid fa-plus"></i> Add';
       }
     });
+
+    // Watch Now — add to library if not already there, then go to watch page
+    window._doWatchNow = async function() {
+      const it = window._currentExploreItem;
+      if (!it) return;
+
+      const btn = document.getElementById('watchNowBtn');
+      if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Loading...'; }
+
+      try {
+        const title  = it.title;
+        const type   = it.libType;
+        const status = it.libStatus;
+        const genre  = it.genres.join(', ');
+        const cover  = it.cover;
+
+        // Check if already in library; if not, add it
+        let itemId = await getWishlistItemIdByTitle(title);
+        if (!itemId) {
+          itemId = await addWishlistItemFromUrl({ title, type, status, genre }, cover);
+          showToast(`"${title}" added to library!`, 'success');
+        }
+
+        location.href = `watch.html?id=${itemId}`;
+      } catch(err) {
+        showToast(err.message || 'Failed to open watch page.', 'error');
+        const btn2 = document.getElementById('watchNowBtn');
+        if (btn2) { btn2.disabled = false; btn2.innerHTML = '<i class="fa-solid fa-play"></i> Watch Now'; }
+      }
+    };
   </script>
 </body>
 </html>
