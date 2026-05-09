@@ -2,7 +2,7 @@ import { initializeApp, getApps, getApp }                      from "https://www
 import { getFirestore, initializeFirestore, persistentLocalCache,
          collection, addDoc, getDocs, updateDoc,
          doc, orderBy, query, serverTimestamp, deleteDoc,
-         getDoc, setDoc, where, limit, writeBatch }           from "https://www.gstatic.com/firebasejs/11.6.0/firebase-firestore.js";
+         getDoc, setDoc, where, limit, startAfter, writeBatch } from "https://www.gstatic.com/firebasejs/11.6.0/firebase-firestore.js";
 import { getStorage, ref, uploadBytes, getDownloadURL,
          deleteObject }                                        from "https://www.gstatic.com/firebasejs/11.6.0/firebase-storage.js";
 import { getAuth, onAuthStateChanged }                         from "https://www.gstatic.com/firebasejs/11.6.0/firebase-auth.js";
@@ -76,6 +76,16 @@ export async function getWishlist({ q = "", type = "", status = "" } = {}) {
   if (stat_lower) items = items.filter(i => (i.status || "") === stat_lower);
 
   return items;
+}
+
+export async function getWishlistPage({ lastDoc = null, pageSize = 24 } = {}) {
+  const constraints = [orderBy("created_at", "desc"), limit(pageSize + 1)];
+  if (lastDoc) constraints.push(startAfter(lastDoc));
+  const snap = await getDocs(query(await wishlistCol(), ...constraints));
+  const docs = snap.docs;
+  const hasMore = docs.length > pageSize;
+  const items = docs.slice(0, pageSize).map(d => ({ id: d.id, ...d.data() }));
+  return { items, lastDoc: hasMore ? docs[pageSize - 1] : null, hasMore };
 }
 
 export async function addWishlistItem(fields, coverFile) {

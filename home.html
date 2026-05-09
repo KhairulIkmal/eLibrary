@@ -121,6 +121,12 @@
       <p style="font-size:12px;color:#666;margin:0">Adjust your filters or <a href="add.html" style="color:#ff4444">add a new item</a>.</p>
     </div>
 
+    <!-- Infinite scroll sentinel + loader -->
+    <div id="scrollSentinel" style="height:1px;margin-top:10px;"></div>
+    <div id="loadMoreSpinner" style="display:none;text-align:center;padding:20px;color:#555;font-size:12px;">
+      <i class="fa-solid fa-spinner fa-spin"></i> Loading more...
+    </div>
+
     <!-- FEED PANEL -->
     <div id="feedPanel" style="display:none;max-width:680px;margin:0 auto;">
       <div id="feedList"></div>
@@ -132,29 +138,31 @@
 
   <!-- Page logic -->
   <script type="module">
-    import { getWishlist, getAllFriendsActivity } from "./js/firebase-service.js";
+    import { getWishlistPage, getAllFriendsActivity } from "./js/firebase-service.js";
 
-    function langMeta(code){
-      switch((code||'').toLowerCase()){
-        case 'id':  return { name: 'Indonesian', icon: 'assets/flags/id.png' };
-        case 'kr':  return { name: 'Korean',     icon: 'assets/flags/kr.png' };
-        case 'my':  return { name: 'Malay',      icon: 'assets/flags/my.png' };
-        default:    return { name: 'English',    icon: 'assets/flags/gb.png' };
-      }
-    }
+    const PAGE_SIZE = 24;
 
-    const grid      = document.getElementById('grid');
-    const empty     = document.getElementById('empty');
-    const feedPanel = document.getElementById('feedPanel');
-    const feedList  = document.getElementById('feedList');
-    const toolbar   = document.querySelector('.toolbar');
-    const q         = document.getElementById('q');
-    const statusSel = document.getElementById('status');
-    const btn       = document.getElementById('searchBtn');
+    const grid           = document.getElementById('grid');
+    const empty          = document.getElementById('empty');
+    const sentinel       = document.getElementById('scrollSentinel');
+    const loadMoreSpinner= document.getElementById('loadMoreSpinner');
+    const feedPanel      = document.getElementById('feedPanel');
+    const feedList       = document.getElementById('feedList');
+    const toolbar        = document.querySelector('.toolbar');
+    const q              = document.getElementById('q');
+    const statusSel      = document.getElementById('status');
+    const btn            = document.getElementById('searchBtn');
 
     let activeType = '';
     let feedLoaded = false;
-    let allItems   = [];   // cached full list — filtered client-side
+
+    // Pagination state
+    let allItems  = [];   // accumulated pages
+    let curLastDoc = null; // Firestore cursor
+    let hasMore   = true;
+    let fetching  = false;
+
+    const statusLabel = { watching:'Watching', reading:'Reading', completed:'Completed', on_hold:'On Hold', dropped:'Dropped', planning:'Planning', ongoing:'Watching', hiatus:'On Hold' };
 
     function timeAgo(ts) {
       if (!ts) return '';
@@ -191,7 +199,6 @@
           <div style="display:flex;gap:14px;background:#111;border:1px solid #1a1a1a;border-radius:16px;padding:14px;margin-bottom:12px;align-items:center;">
             ${act.coverPath ? `<img src="${act.coverPath}" style="width:72px;height:100px;object-fit:cover;border-radius:10px;flex-shrink:0;background:#0d0d0d;" onerror="this.style.display='none'">` : ''}
             <div style="flex:1;min-width:0;">
-              <!-- who + when -->
               <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
                 <div style="width:24px;height:24px;border-radius:50%;flex-shrink:0;overflow:hidden;background:#1a1a1a;display:flex;align-items:center;justify-content:center;color:rgba(255,0,0,.5);">
                   ${act.friendPhoto ? `<img src="${act.friendPhoto}" style="width:100%;height:100%;object-fit:cover;" onerror="this.style.display='none'">` : `<i class="fa-solid fa-circle-user" style="font-size:13px"></i>`}
@@ -199,9 +206,7 @@
                 <span style="font-size:12px;color:#ff8888;">${act.friendUsername || 'Friend'}</span>
                 <span style="font-size:10px;color:#333;margin-left:auto;">${timeAgo(act.timestamp)}</span>
               </div>
-              <!-- what they did -->
               <div style="font-size:13px;color:#bbb;line-height:1.5;">${actionText(act)}</div>
-              <!-- type chip -->
               ${act.itemType ? `<div style="margin-top:8px;"><span style="font-size:10px;padding:3px 8px;border-radius:999px;background:rgba(255,0,0,.08);border:1px solid rgba(255,0,0,.18);color:#ff8888;">${act.itemType.toUpperCase()}</span></div>` : ''}
             </div>
           </div>`).join('');
@@ -221,11 +226,12 @@
         const isFeed = activeType === '__feed';
         toolbar.style.display    = isFeed ? 'none' : '';
         grid.style.display       = isFeed ? 'none' : '';
+        sentinel.style.display   = isFeed ? 'none' : '';
         empty.style.display      = 'none';
         feedPanel.style.display  = isFeed ? '' : 'none';
 
         if (isFeed) { loadFeed(); }
-        else filterAndRender();
+        else { resetAndLoad(); }
       });
     });
 
@@ -243,17 +249,40 @@
       }
     }
 
-    // Fetch all items once and cache — re-fetch only on explicit Search click
-    async function load(){
+    // Reset pagination state and load first page
+    async function resetAndLoad() {
+      allItems   = [];
+      curLastDoc = null;
+      hasMore    = true;
+      fetching   = false;
       showSkeletons();
-      allItems = await getWishlist();   // no server-side filters; filter client-side
+      await fetchNextPage();
+    }
+
+    // Fetch next page from Firestore and append
+    async function fetchNextPage() {
+      if (fetching || !hasMore) return;
+      fetching = true;
+      loadMoreSpinner.style.display = '';
+
+      try {
+        const result = await getWishlistPage({ lastDoc: curLastDoc, pageSize: PAGE_SIZE });
+        allItems   = [...allItems, ...result.items];
+        curLastDoc = result.lastDoc;
+        hasMore    = result.hasMore;
+      } catch(e) {
+        console.error('Failed to load page:', e);
+      }
+
+      fetching = false;
+      loadMoreSpinner.style.display = 'none';
       filterAndRender();
     }
 
-    // Client-side filter + render from cache
+    // Client-side filter on all loaded items
     function filterAndRender() {
-      const qVal     = (q?.value || '').trim().toLowerCase();
-      const typeVal  = activeType;
+      const qVal      = (q?.value || '').trim().toLowerCase();
+      const typeVal   = activeType;
       const statusVal = statusSel?.value || '';
 
       let items = allItems;
@@ -261,10 +290,9 @@
         (i.title  || '').toLowerCase().includes(qVal) ||
         (i.genre  || '').toLowerCase().includes(qVal)
       );
-      if (typeVal)   items = items.filter(i => (i.type   || '').toLowerCase() === typeVal);
+      if (typeVal)   items = items.filter(i => (i.type || '').toLowerCase() === typeVal);
       if (statusVal) items = items.filter(i => {
         const s = (i.status || '').toLowerCase();
-        // map legacy values
         const mapped = s === 'ongoing' ? 'watching' : s === 'hiatus' ? 'on_hold' : s;
         return mapped === statusVal;
       });
@@ -272,63 +300,65 @@
       render(items);
     }
 
-    function render(items){
-      grid.innerHTML = "";
-      if (!items || items.length === 0){ empty.style.display = 'block'; return; }
-      empty.style.display = 'none';
+    function makeCard(it) {
+      const imgSrc = it.cover_path ? it.cover_path : (it.cover_url || 'https://via.placeholder.com/400x533?text=No+Image');
+      const status = statusLabel[it.status] || (it.status||'').toUpperCase();
+      const last   = it.last_chapter ? `Ch. ${it.last_chapter}` : '';
+      const hasProg = it.progress_current != null;
+      const progPct = (hasProg && it.progress_total) ? Math.min(100, Math.round((it.progress_current / it.progress_total) * 100)) : null;
+      const progText = hasProg ? (it.progress_total ? `${it.progress_current}/${it.progress_total}` : `Ep/Ch ${it.progress_current}`) : '';
+      const ratingHtml = it.rating != null ? `<span class="chip" style="color:#f5c518;border-color:#f5c51833">★ ${it.rating}</span>` : '';
 
-      const statusLabel = { watching:'Watching', reading:'Reading', completed:'Completed', on_hold:'On Hold', dropped:'Dropped', planning:'Planning', ongoing:'Watching', hiatus:'On Hold' };
-
-      items.forEach(it => {
-        const imgSrc = it.cover_path ? it.cover_path : (it.cover_url || 'https://via.placeholder.com/400x533?text=No+Image');
-        const status = statusLabel[it.status] || (it.status||'').toUpperCase();
-        const last   = it.last_chapter ? `Ch. ${it.last_chapter}` : '';
-
-        // Progress bar
-        const hasProg = it.progress_current != null;
-        const progPct = (hasProg && it.progress_total) ? Math.min(100, Math.round((it.progress_current / it.progress_total) * 100)) : null;
-        const progText = hasProg ? (it.progress_total ? `${it.progress_current}/${it.progress_total}` : `Ep/Ch ${it.progress_current}`) : '';
-
-        // Rating
-        const ratingHtml = it.rating != null
-          ? `<span class="chip" style="color:#f5c518;border-color:#f5c51833">★ ${it.rating}</span>`
-          : '';
-
-        const card = document.createElement('a');
-        card.className = 'card';
-        card.href = `detail.html?id=${it.id}`;
-        card.innerHTML = `
-          <img class="thumb" src="${imgSrc}" alt="${it.title || ''}" onerror="this.src='https://via.placeholder.com/400x533?text=No+Image'">
-          <div class="content">
-            <h3 class="title">${it.title || ''}</h3>
-            <div class="meta">
-              <span class="chip">${(it.type||'').toUpperCase()}</span>
-              ${it.genre ? `<span class="chip">${it.genre}</span>` : ``}
-              ${status ? `<span class="chip">${status}</span>` : ``}
-              ${last ? `<span class="chip">${last}</span>` : ``}
-              ${ratingHtml}
-            </div>
-            ${hasProg && progPct != null ? `
-            <div style="margin-top:6px">
-              <div style="height:4px;background:#1a1a1a;border-radius:999px;overflow:hidden">
-                <div style="height:100%;width:${progPct}%;background:linear-gradient(90deg,#ff4444,#ff8800);border-radius:999px"></div>
-              </div>
-              <div style="font-size:10px;color:#555;margin-top:2px">${progText}</div>
-            </div>` : ''}
+      const card = document.createElement('a');
+      card.className = 'card';
+      card.href = `detail.html?id=${it.id}`;
+      card.innerHTML = `
+        <img class="thumb" src="${imgSrc}" alt="${it.title || ''}" loading="lazy" onerror="this.src='https://via.placeholder.com/400x533?text=No+Image'">
+        <div class="content">
+          <h3 class="title">${it.title || ''}</h3>
+          <div class="meta">
+            <span class="chip">${(it.type||'').toUpperCase()}</span>
+            ${it.genre ? `<span class="chip">${it.genre}</span>` : ''}
+            ${status ? `<span class="chip">${status}</span>` : ''}
+            ${last ? `<span class="chip">${last}</span>` : ''}
+            ${ratingHtml}
           </div>
-        `;
-        grid.appendChild(card);
-      });
+          ${hasProg && progPct != null ? `
+          <div style="margin-top:6px">
+            <div style="height:4px;background:#1a1a1a;border-radius:999px;overflow:hidden">
+              <div style="height:100%;width:${progPct}%;background:linear-gradient(90deg,#ff4444,#ff8800);border-radius:999px"></div>
+            </div>
+            <div style="font-size:10px;color:#555;margin-top:2px">${progText}</div>
+          </div>` : ''}
+        </div>
+      `;
+      return card;
     }
 
-    grid.addEventListener('click', (e) => {
-      // cards are <a> tags now — native navigation handles it
-    });
+    function render(items) {
+      grid.innerHTML = '';
+      if (!items || items.length === 0) {
+        empty.style.display = hasMore ? 'none' : 'block';
+        return;
+      }
+      empty.style.display = 'none';
+      const frag = document.createDocumentFragment();
+      items.forEach(it => frag.appendChild(makeCard(it)));
+      grid.appendChild(frag);
+    }
 
-    // Refresh from Firestore on Search button click
-    if (btn) btn.addEventListener('click', load);
+    // IntersectionObserver — fires fetchNextPage when sentinel scrolls into view
+    const observer = new IntersectionObserver((entries) => {
+      if (entries[0].isIntersecting && hasMore && !fetching) {
+        fetchNextPage();
+      }
+    }, { rootMargin: '200px' });
+    observer.observe(sentinel);
 
-    // Live search — debounced 250 ms
+    // Search button — reset & reload from Firestore
+    if (btn) btn.addEventListener('click', resetAndLoad);
+
+    // Live search — filter already-loaded items (debounced 250ms)
     let _searchTimer;
     if (q) {
       q.addEventListener('input', () => {
@@ -338,10 +368,10 @@
       q.addEventListener('keydown', (e) => { if (e.key === 'Enter') filterAndRender(); });
     }
 
-    // Status dropdown — instant filter from cache
+    // Status dropdown — filter already-loaded items instantly
     if (statusSel) statusSel.addEventListener('change', filterAndRender);
 
-    load();
+    resetAndLoad();
   </script>
 </body>
 </html>
