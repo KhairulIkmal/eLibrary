@@ -2,7 +2,8 @@ import { initializeApp, getApps, getApp }                      from "https://www
 import { getFirestore, initializeFirestore, persistentLocalCache,
          collection, addDoc, getDocs, updateDoc,
          doc, orderBy, query, serverTimestamp, deleteDoc,
-         getDoc, setDoc, where, limit, startAfter, writeBatch } from "https://www.gstatic.com/firebasejs/11.6.0/firebase-firestore.js";
+         getDoc, setDoc, where, limit, startAfter, writeBatch,
+         onSnapshot, limitToLast } from "https://www.gstatic.com/firebasejs/11.6.0/firebase-firestore.js";
 import { getStorage, ref, uploadBytes, getDownloadURL,
          deleteObject }                                        from "https://www.gstatic.com/firebasejs/11.6.0/firebase-storage.js";
 import { getAuth, onAuthStateChanged }                         from "https://www.gstatic.com/firebasejs/11.6.0/firebase-auth.js";
@@ -795,4 +796,94 @@ export async function getRecentlyUpdated(limitCount = 5) {
       .filter(i => i.status === 'watching' || i.status === 'reading')
       .slice(0, limitCount);
   }
+}
+
+/* ── Chat ───────────────────────────────────────────────── */
+
+// Deterministic chat ID — sort the two UIDs so the same pair always maps to the same doc
+function chatId(uid1, uid2) {
+  return [uid1, uid2].sort().join('_');
+}
+
+// Get or create the chat document; returns the chatId string
+export async function getOrCreateChat(friendUid) {
+  const myUid = await getUid();
+  const id    = chatId(myUid, friendUid);
+  const ref   = doc(db, 'chats', id);
+  const snap  = await getDoc(ref);
+  if (!snap.exists()) {
+    await setDoc(ref, {
+      participants:   [myUid, friendUid],
+      lastMessage:    '',
+      lastSenderUid:  '',
+      lastAt:         serverTimestamp(),
+    });
+  }
+  return id;
+}
+
+// Send a plain text message
+export async function sendTextMessage(cId, text) {
+  const myUid = await getUid();
+  await addDoc(collection(db, 'chats', cId, 'messages'), {
+    senderUid: myUid,
+    type:      'text',
+    text,
+    sentAt:    serverTimestamp(),
+  });
+  await updateDoc(doc(db, 'chats', cId), {
+    lastMessage:   text,
+    lastSenderUid: myUid,
+    lastAt:        serverTimestamp(),
+  });
+}
+
+// Share a wishlist item as a card message
+export async function shareWishlistItem(cId, item) {
+  const myUid  = await getUid();
+  const preview = {
+    id:         item.id,
+    title:      item.title      || '',
+    type:       item.type       || '',
+    cover_path: item.cover_path || '',
+    status:     item.status     || '',
+    rating:     item.rating     ?? null,
+    genre:      item.genre      || '',
+    site_url:   item.site_url   || '',
+  };
+  await addDoc(collection(db, 'chats', cId, 'messages'), {
+    senderUid:    myUid,
+    type:         'wishlist',
+    wishlistItem: preview,
+    sentAt:       serverTimestamp(),
+  });
+  await updateDoc(doc(db, 'chats', cId), {
+    lastMessage:   `Shared: ${item.title}`,
+    lastSenderUid: myUid,
+    lastAt:        serverTimestamp(),
+  });
+}
+
+// Subscribe to messages in real-time; returns the unsubscribe function
+export function listenToMessages(cId, callback) {
+  const q = query(
+    collection(db, 'chats', cId, 'messages'),
+    orderBy('sentAt', 'asc'),
+    limitToLast(100)
+  );
+  return onSnapshot(q, snap =>
+    callback(snap.docs.map(d => ({ id: d.id, ...d.data() })))
+  );
+}
+
+// Get all chats the current user is a participant of (for the sidebar)
+export async function getMyChats() {
+  const myUid = await getUid();
+  const q = query(
+    collection(db, 'chats'),
+    where('participants', 'array-contains', myUid),
+    orderBy('lastAt', 'desc')
+  );
+  const snap = await getDocs(q);
+  return snap.docs.map(d => ({ id: d.id, ...d.data() }));
 }

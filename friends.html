@@ -467,6 +467,9 @@
               <button class="btn-primary" onclick="viewWishlist('${f.uid}','${esc(f.username)}','${esc(f.photoURL)}')">
                 <i class="fa-solid fa-book-open"></i> Wishlist
               </button>
+              <button class="btn-ghost" onclick="window.location.href='chat.html?uid=${f.uid}'">
+                <i class="fa-solid fa-comments"></i> Chat
+              </button>
               <button class="btn-ghost" onclick="compareWith('${f.uid}','${esc(f.username)}')">
                 <i class="fa-solid fa-code-compare"></i> Compare
               </button>

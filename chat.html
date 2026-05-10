@@ -1,0 +1,517 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <link rel="icon" type="image/jpeg" href="main.jpg" />
+  <title>Chat — My E-Library</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link href="css/site.css" rel="stylesheet" />
+  <link href="css/chat.css" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Bungee&display=swap" rel="stylesheet" />
+  <script src="https://kit.fontawesome.com/3c6e6d7c17.js" crossorigin="anonymous"></script>
+</head>
+<body class="chat-page">
+
+  <script type="module" src="js/auth-guard.js"></script>
+  <script type="module" src="js/nav.js"></script>
+
+  <!-- Nav injected by nav.js -->
+  <nav id="mainNav"></nav>
+
+  <div class="chat-layout">
+
+    <!-- ── SIDEBAR ── -->
+    <aside class="chat-sidebar" id="chatSidebar">
+      <div class="chat-sidebar-header">
+        <i class="fa-solid fa-comments"></i> Messages
+      </div>
+      <div class="chat-sidebar-list" id="sidebarList">
+        <div class="chat-sidebar-empty">
+          <i class="fa-solid fa-spinner fa-spin"></i>
+          Loading friends...
+        </div>
+      </div>
+    </aside>
+
+    <!-- ── MAIN PANEL ── -->
+    <main class="chat-main" id="chatMain">
+
+      <!-- Empty state (no conversation selected) -->
+      <div class="chat-empty-state" id="emptyState">
+        <i class="fa-solid fa-comments"></i>
+        <p>Select a friend to chat</p>
+        <span>Share your anime, manga &amp; movie wishlist</span>
+      </div>
+
+      <!-- Active conversation (hidden until selected) -->
+      <div id="activeConvo" style="display:none; flex-direction:column; flex:1; overflow:hidden;">
+
+        <!-- Chat header -->
+        <div class="chat-header" id="chatHeader">
+          <div class="chat-header-avatar" id="headerAvatar">
+            <i class="fa-solid fa-circle-user"></i>
+          </div>
+          <div class="chat-header-info">
+            <div class="chat-header-name" id="headerName"></div>
+            <div class="chat-header-sub">Friends</div>
+          </div>
+          <div class="chat-header-actions">
+            <a id="headerWishlistLink" href="#" class="chat-header-btn" title="View their wishlist">
+              <i class="fa-solid fa-book-open"></i> Wishlist
+            </a>
+          </div>
+        </div>
+
+        <!-- Messages -->
+        <div class="chat-messages" id="chatMessages"></div>
+
+        <!-- Input bar -->
+        <div class="chat-input-area">
+          <button class="chat-share-btn" id="shareBtn" title="Share a wishlist item">
+            <i class="fa-solid fa-book-open-reader"></i>
+          </button>
+          <input
+            class="chat-text-input"
+            id="msgInput"
+            type="text"
+            placeholder="Type a message…"
+            maxlength="1000"
+            autocomplete="off"
+          />
+          <button class="chat-send-btn" id="sendBtn" disabled title="Send">
+            <i class="fa-solid fa-paper-plane"></i>
+          </button>
+        </div>
+
+      </div>
+
+    </main>
+
+  </div>
+
+  <!-- Mobile sidebar toggle -->
+  <button class="chat-sidebar-toggle" id="sidebarToggle" title="Open conversations">
+    <i class="fa-solid fa-comments"></i>
+  </button>
+
+  <!-- ── SHARE WISHLIST MODAL ── -->
+  <div class="share-modal-overlay" id="shareOverlay">
+    <div class="share-modal">
+      <div class="share-modal-header">
+        <div class="share-modal-title">
+          <i class="fa-solid fa-book-open-reader"></i> Share from Your Wishlist
+        </div>
+        <button class="share-modal-close" id="shareClose">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+      <div class="share-modal-search">
+        <input type="text" id="shareSearch" placeholder="Search your wishlist…" autocomplete="off" />
+      </div>
+      <div class="share-modal-grid" id="shareGrid">
+        <div class="share-modal-empty">
+          <i class="fa-solid fa-spinner fa-spin"></i> Loading…
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script type="module">
+    import {
+      getFriends,
+      getOrCreateChat,
+      sendTextMessage,
+      shareWishlistItem,
+      listenToMessages,
+      getWishlist,
+      addWishlistItemFromUrl,
+      checkWishlistTitleExists,
+    } from "./js/firebase-service.js";
+    import { getAuth, onAuthStateChanged }
+      from "https://www.gstatic.com/firebasejs/11.6.0/firebase-auth.js";
+    import { initializeApp, getApps, getApp }
+      from "https://www.gstatic.com/firebasejs/11.6.0/firebase-app.js";
+    import { firebaseConfig } from "./js/firebase-config.js";
+
+    const app  = getApps().length ? getApp() : initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+
+    /* ── State ── */
+    let myUid         = null;
+    let myPhoto       = sessionStorage.getItem('userPhoto') || '';
+    let activeChatId  = null;
+    let activeFriend  = null;   // { uid, username, photoURL }
+    let unsubMessages = null;
+    let allWishlist   = [];
+    let friends       = [];
+
+    /* ── DOM refs ── */
+    const sidebarList     = document.getElementById('sidebarList');
+    const emptyState      = document.getElementById('emptyState');
+    const activeConvo     = document.getElementById('activeConvo');
+    const chatMessages    = document.getElementById('chatMessages');
+    const headerAvatar    = document.getElementById('headerAvatar');
+    const headerName      = document.getElementById('headerName');
+    const headerWishlist  = document.getElementById('headerWishlistLink');
+    const msgInput        = document.getElementById('msgInput');
+    const sendBtn         = document.getElementById('sendBtn');
+    const shareBtn        = document.getElementById('shareBtn');
+    const shareOverlay    = document.getElementById('shareOverlay');
+    const shareClose      = document.getElementById('shareClose');
+    const shareSearch     = document.getElementById('shareSearch');
+    const shareGrid       = document.getElementById('shareGrid');
+    const sidebarToggle   = document.getElementById('sidebarToggle');
+    const chatSidebar     = document.getElementById('chatSidebar');
+
+    /* ── Helpers ── */
+    function esc(s) {
+      return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    }
+
+    function avatarHtml(photoURL, size = 38) {
+      if (photoURL) return `<img src="${esc(photoURL)}" alt="" style="width:${size}px;height:${size}px;border-radius:50%;object-fit:cover;">`;
+      return `<i class="fa-solid fa-circle-user"></i>`;
+    }
+
+    function fmtTime(ts) {
+      if (!ts) return '';
+      const d = ts.toDate ? ts.toDate() : new Date(ts);
+      const now = new Date();
+      if (d.toDateString() === now.toDateString()) {
+        return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      }
+      return d.toLocaleDateString([], { month: 'short', day: 'numeric' });
+    }
+
+    function fmtMsgTime(ts) {
+      if (!ts) return '';
+      const d = ts.toDate ? ts.toDate() : new Date(ts);
+      return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    }
+
+    function typeColor(type) {
+      const map = { anime:'#ff6b6b', manga:'#6bceff', manhwa:'#a78bfa', manhua:'#fb923c', movie:'#4ade80', novel:'#facc15' };
+      return map[(type||'').toLowerCase()] || '#ff9999';
+    }
+
+    /* ── Wait for auth ── */
+    await new Promise(resolve => {
+      const unsub = onAuthStateChanged(auth, user => {
+        unsub();
+        if (user) { myUid = user.uid; myPhoto = user.photoURL || myPhoto; }
+        resolve();
+      });
+    });
+
+    /* ── Load friends into sidebar ── */
+    async function loadSidebar() {
+      try {
+        friends = await getFriends();
+        if (!friends.length) {
+          sidebarList.innerHTML = `<div class="chat-sidebar-empty">
+            <i class="fa-solid fa-user-group"></i>
+            No friends yet.<br>
+            <a href="friends.html" style="color:#ff9999;font-size:11px;">Add friends</a>
+          </div>`;
+          return;
+        }
+        sidebarList.innerHTML = friends.map(f => `
+          <div class="chat-sidebar-item" id="sidebar-${f.uid}" data-uid="${f.uid}">
+            <div class="chat-sidebar-avatar">${avatarHtml(f.photoURL)}</div>
+            <div class="chat-sidebar-info">
+              <div class="chat-sidebar-name">${esc(f.username || f.uid)}</div>
+              <div class="chat-sidebar-preview" id="preview-${f.uid}">Click to start chatting</div>
+            </div>
+            <div class="chat-sidebar-time" id="time-${f.uid}"></div>
+          </div>
+        `).join('');
+
+        // Attach click handlers
+        friends.forEach(f => {
+          document.getElementById(`sidebar-${f.uid}`)
+            .addEventListener('click', () => openChat(f));
+        });
+
+        // Open from URL param
+        const paramUid = new URLSearchParams(location.search).get('uid');
+        if (paramUid) {
+          const target = friends.find(f => f.uid === paramUid);
+          if (target) openChat(target);
+        }
+      } catch (err) {
+        sidebarList.innerHTML = `<div class="chat-sidebar-empty">Failed to load friends.</div>`;
+        console.error(err);
+      }
+    }
+
+    /* ── Open conversation ── */
+    async function openChat(friend) {
+      // Update active state in sidebar
+      document.querySelectorAll('.chat-sidebar-item').forEach(el => el.classList.remove('active'));
+      document.getElementById(`sidebar-${friend.uid}`)?.classList.add('active');
+
+      // Update header
+      activeFriend = friend;
+      headerAvatar.innerHTML = friend.photoURL
+        ? `<img src="${esc(friend.photoURL)}" alt="" style="width:36px;height:36px;border-radius:50%;object-fit:cover;">`
+        : `<i class="fa-solid fa-circle-user"></i>`;
+      headerName.textContent = friend.username || friend.uid;
+      headerWishlist.href = `friends.html#wishlist-${friend.uid}`;
+
+      // Show conversation panel
+      emptyState.style.display = 'none';
+      activeConvo.style.display = 'flex';
+
+      // Enable input
+      msgInput.disabled = false;
+      msgInput.focus();
+
+      // Clear old messages
+      chatMessages.innerHTML = `<div class="chat-loading"><div class="chat-spinner"></div></div>`;
+
+      // Unsubscribe previous listener
+      if (unsubMessages) { unsubMessages(); unsubMessages = null; }
+
+      // Get or create chat
+      activeChatId = await getOrCreateChat(friend.uid);
+
+      // Subscribe to messages
+      unsubMessages = listenToMessages(activeChatId, renderMessages);
+
+      // Mobile: close sidebar
+      chatSidebar.classList.remove('open');
+    }
+
+    /* ── Render messages ── */
+    function renderMessages(msgs) {
+      if (!msgs.length) {
+        chatMessages.innerHTML = `<div style="flex:1;display:flex;align-items:center;justify-content:center;">
+          <div style="text-align:center;color:rgba(255,255,255,0.15);font-family:Arial,sans-serif;font-size:12px;">
+            <i class="fa-solid fa-comment" style="font-size:28px;display:block;margin-bottom:10px;opacity:.3;"></i>
+            No messages yet. Say hello!
+          </div>
+        </div>`;
+        return;
+      }
+
+      let html = '';
+      let lastDate = '';
+      let lastSender = '';
+
+      msgs.forEach(msg => {
+        const isMine = msg.senderUid === myUid;
+        const ts = msg.sentAt;
+        const timeStr = fmtMsgTime(ts);
+
+        // Date divider
+        const d = ts?.toDate ? ts.toDate() : new Date();
+        const dateStr = d.toDateString();
+        if (dateStr !== lastDate) {
+          lastDate = dateStr;
+          const label = dateStr === new Date().toDateString() ? 'Today' : d.toLocaleDateString([], { weekday:'long', month:'short', day:'numeric' });
+          html += `<div class="msg-date-divider"><span>${label}</span></div>`;
+        }
+
+        const consecutive = !isMine && msg.senderUid === lastSender;
+        lastSender = msg.senderUid;
+
+        if (msg.type === 'text') {
+          html += `
+            <div class="msg-row ${isMine ? 'mine' : 'theirs'}${consecutive ? ' consecutive' : ''}">
+              <div class="msg-avatar">${avatarHtml(isMine ? myPhoto : activeFriend?.photoURL)}</div>
+              <div class="msg-bubble">${esc(msg.text)}</div>
+              <span class="msg-time">${timeStr}</span>
+            </div>`;
+        } else if (msg.type === 'wishlist') {
+          const item = msg.wishlistItem || {};
+          html += `
+            <div class="msg-row ${isMine ? 'mine' : 'theirs'}${consecutive ? ' consecutive' : ''}">
+              <div class="msg-avatar">${avatarHtml(isMine ? myPhoto : activeFriend?.photoURL)}</div>
+              <div class="wishlist-card-msg">
+                <div class="wc-label">
+                  <i class="fa-solid fa-book-open-reader"></i>
+                  ${isMine ? 'You shared' : (esc(activeFriend?.username || '') + ' shared')}
+                </div>
+                <div class="wc-body">
+                  <div class="wc-cover">
+                    ${item.cover_path
+                      ? `<img src="${esc(item.cover_path)}" alt="" loading="lazy" />`
+                      : `<i class="fa-solid fa-image"></i>`}
+                  </div>
+                  <div class="wc-info">
+                    <div class="wc-title">${esc(item.title)}</div>
+                    <div class="wc-meta">
+                      ${item.type ? `<span class="wc-badge type">${esc(item.type.toUpperCase())}</span>` : ''}
+                      ${item.status ? `<span class="wc-badge">${esc(item.status)}</span>` : ''}
+                      ${item.rating != null ? `<span class="wc-badge rating">★ ${item.rating}</span>` : ''}
+                    </div>
+                  </div>
+                </div>
+                <div class="wc-actions">
+                  ${item.site_url
+                    ? `<a href="${esc(item.site_url)}" target="_blank" rel="noopener" class="wc-btn">
+                        <i class="fa-solid fa-arrow-up-right-from-square"></i> Source
+                       </a>`
+                    : ''}
+                  ${!isMine
+                    ? `<button class="wc-btn add" data-item='${JSON.stringify({
+                          title: item.title, type: item.type, genre: item.genre,
+                          cover_path: item.cover_path, site_url: item.site_url,
+                        })}' onclick="window.__addToLibrary(this)">
+                         <i class="fa-solid fa-plus"></i> Add to Library
+                       </button>`
+                    : ''}
+                </div>
+              </div>
+              <span class="msg-time">${timeStr}</span>
+            </div>`;
+        }
+      });
+
+      chatMessages.innerHTML = html;
+
+      // Check existing library for "Add to Library" buttons
+      chatMessages.querySelectorAll('.wc-btn.add').forEach(async btn => {
+        try {
+          const item = JSON.parse(btn.dataset.item || '{}');
+          if (item.title) {
+            const exists = await checkWishlistTitleExists(item.title);
+            if (exists) {
+              btn.textContent = '';
+              btn.innerHTML = '<i class="fa-solid fa-check"></i> In Library';
+              btn.classList.replace('add', 'added');
+              btn.disabled = true;
+            }
+          }
+        } catch {}
+      });
+
+      // Scroll to bottom
+      chatMessages.scrollTop = chatMessages.scrollHeight;
+    }
+
+    /* ── Add to Library from chat card ── */
+    window.__addToLibrary = async (btn) => {
+      const item = JSON.parse(btn.dataset.item || '{}');
+      if (!item.title) return;
+      btn.disabled = true;
+      btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
+      try {
+        await addWishlistItemFromUrl(
+          { title: item.title, type: item.type || '', genre: item.genre || '', status: 'planning', site_url: item.site_url || '' },
+          item.cover_path || ''
+        );
+        btn.innerHTML = '<i class="fa-solid fa-check"></i> Added!';
+        btn.classList.replace('add', 'added');
+      } catch (err) {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fa-solid fa-plus"></i> Add to Library';
+        console.error(err);
+      }
+    };
+
+    /* ── Send text ── */
+    async function sendMessage() {
+      const text = msgInput.value.trim();
+      if (!text || !activeChatId) return;
+      msgInput.value = '';
+      sendBtn.disabled = true;
+      try {
+        await sendTextMessage(activeChatId, text);
+      } catch (err) {
+        console.error('Send failed:', err);
+        msgInput.value = text;
+      } finally {
+        sendBtn.disabled = false;
+        msgInput.focus();
+      }
+    }
+
+    sendBtn.addEventListener('click', sendMessage);
+    msgInput.addEventListener('keydown', e => {
+      if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
+    });
+    msgInput.addEventListener('input', () => {
+      sendBtn.disabled = msgInput.value.trim().length === 0;
+    });
+
+    /* ── Share modal ── */
+    async function openShareModal() {
+      if (!activeChatId) return;
+      shareOverlay.classList.add('open');
+      shareSearch.value = '';
+      shareGrid.innerHTML = `<div class="share-modal-empty"><i class="fa-solid fa-spinner fa-spin"></i> Loading…</div>`;
+      shareSearch.focus();
+
+      try {
+        allWishlist = await getWishlist();
+        renderShareGrid(allWishlist);
+      } catch (err) {
+        shareGrid.innerHTML = `<div class="share-modal-empty">Failed to load wishlist.</div>`;
+      }
+    }
+
+    function renderShareGrid(items) {
+      if (!items.length) {
+        shareGrid.innerHTML = `<div class="share-modal-empty">Nothing found.</div>`;
+        return;
+      }
+      shareGrid.innerHTML = items.map(item => `
+        <div class="share-item" data-id="${item.id}" title="${esc(item.title)}">
+          <div class="share-item-cover">
+            ${item.cover_path
+              ? `<img src="${esc(item.cover_path)}" alt="" loading="lazy" />`
+              : `<i class="fa-solid fa-image"></i>`}
+          </div>
+          <div class="share-item-info">
+            <div class="share-item-title">${esc(item.title)}</div>
+            <div class="share-item-type">${esc(item.type || '')}</div>
+          </div>
+        </div>
+      `).join('');
+
+      shareGrid.querySelectorAll('.share-item').forEach(el => {
+        el.addEventListener('click', async () => {
+          const id   = el.dataset.id;
+          const item = allWishlist.find(i => i.id === id);
+          if (!item) return;
+          closeShareModal();
+          try {
+            await shareWishlistItem(activeChatId, item);
+          } catch (err) {
+            console.error('Share failed:', err);
+          }
+        });
+      });
+    }
+
+    function closeShareModal() {
+      shareOverlay.classList.remove('open');
+    }
+
+    shareBtn.addEventListener('click', openShareModal);
+    shareClose.addEventListener('click', closeShareModal);
+    shareOverlay.addEventListener('click', e => { if (e.target === shareOverlay) closeShareModal(); });
+
+    shareSearch.addEventListener('input', () => {
+      const q = shareSearch.value.trim().toLowerCase();
+      const filtered = q
+        ? allWishlist.filter(i => (i.title || '').toLowerCase().includes(q) || (i.type || '').toLowerCase().includes(q))
+        : allWishlist;
+      renderShareGrid(filtered);
+    });
+
+    /* ── Mobile sidebar toggle ── */
+    sidebarToggle.addEventListener('click', () => chatSidebar.classList.toggle('open'));
+    document.addEventListener('click', e => {
+      if (!chatSidebar.contains(e.target) && !sidebarToggle.contains(e.target)) {
+        chatSidebar.classList.remove('open');
+      }
+    });
+
+    /* ── Init ── */
+    await loadSidebar();
+  </script>
+
+</body>
+</html>

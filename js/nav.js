@@ -69,6 +69,7 @@
     platform: page.includes('platform') || page.includes('watch'),
     update:   page.includes('update'),
     friends:  page.includes('friends'),
+    chat:     page.includes('chat'),
     calendar: page.includes('calendar'),
     import:   page.includes('import'),
     stats:    page.includes('stats'),
@@ -83,6 +84,7 @@
 
   const secondaryLinks = [
     { href: 'friends.html',  label: 'Friends',  icon: 'fa-user-group',    key: 'friends'  },
+    { href: 'chat.html',     label: 'Chat',     icon: 'fa-comments',      key: 'chat'     },
     { href: 'calendar.html', label: 'Calendar', icon: 'fa-calendar-days', key: 'calendar' },
     { href: 'import.html',   label: 'Import',   icon: 'fa-file-import',   key: 'import'   },
     { href: 'stats.html',    label: 'Stats',    icon: 'fa-chart-bar',     key: 'stats'    },
