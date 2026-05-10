@@ -264,22 +264,35 @@
 
       // Enable input
       msgInput.disabled = false;
-      msgInput.focus();
 
-      // Clear old messages
+      // Clear old messages + show spinner
       chatMessages.innerHTML = `<div class="chat-loading"><div class="chat-spinner"></div></div>`;
 
       // Unsubscribe previous listener
       if (unsubMessages) { unsubMessages(); unsubMessages = null; }
 
-      // Get or create chat
-      activeChatId = await getOrCreateChat(friend.uid);
+      try {
+        // Get or create chat doc
+        activeChatId = await getOrCreateChat(friend.uid);
 
-      // Subscribe to messages
-      unsubMessages = listenToMessages(activeChatId, renderMessages);
+        // Subscribe to real-time messages
+        unsubMessages = listenToMessages(activeChatId, (msgs) => {
+          renderMessages(msgs);
+        });
+      } catch (err) {
+        console.error('Failed to open chat:', err);
+        chatMessages.innerHTML = `
+          <div style="flex:1;display:flex;align-items:center;justify-content:center;padding:40px;">
+            <div style="text-align:center;color:rgba(255,80,80,0.7);font-family:Arial,sans-serif;font-size:13px;">
+              <i class="fa-solid fa-circle-exclamation" style="font-size:28px;display:block;margin-bottom:10px;"></i>
+              Could not load chat. Please try again.
+            </div>
+          </div>`;
+      }
 
       // Mobile: close sidebar
       chatSidebar.classList.remove('open');
+      msgInput.focus();
     }
 
     /* ── Render messages ── */

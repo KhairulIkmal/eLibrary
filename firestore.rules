@@ -86,8 +86,10 @@ service cloud.firestore {
 
     // Chat — only participants can read/write; verified users can send messages
     match /chats/{chatId} {
+      // resource is null for non-existent docs (needed so getOrCreateChat can check existence)
       allow read: if request.auth != null
-                     && request.auth.uid in resource.data.participants;
+                     && (resource == null
+                         || request.auth.uid in resource.data.participants);
       allow create: if request.auth != null
                        && request.auth.token.email_verified
                        && request.auth.uid in request.resource.data.participants
