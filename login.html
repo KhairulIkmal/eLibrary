@@ -361,9 +361,11 @@
         } else {
           const { user } = await signInWithEmailAndPassword(auth, email, pass);
           if (!user.emailVerified) {
+            await sendEmailVerification(user).catch(() => {});
             await signOut(auth);
             shake();
-            errMsg.textContent  = 'Please verify your email first. Check your inbox.';
+            errMsg.className    = 'err-msg success';
+            errMsg.textContent  = 'New verification email sent! Check your inbox.';
             loginBtn.disabled   = false;
             btnText.textContent = 'Login';
             return;
