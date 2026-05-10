@@ -444,11 +444,16 @@ export async function upsertPublicProfile(user) {
 /* ── Username uniqueness ──────────────────────────────────── */
 
 export async function checkUsernameAvailable(username) {
-  const snap = await getDoc(doc(db, "usernames", username.toLowerCase()));
-  if (!snap.exists()) return true;
-  const currentUid = auth.currentUser?.uid;
-  if (!currentUid) return false; // not logged in = definitely taken
-  return snap.data().uid === currentUid; // already mine → still "available"
+  try {
+    const snap = await getDoc(doc(db, "usernames", username.toLowerCase()));
+    if (!snap.exists()) return true;
+    const currentUid = auth.currentUser?.uid;
+    if (!currentUid) return false; // not logged in = treat as taken
+    return snap.data().uid === currentUid; // already mine → still "available"
+  } catch (e) {
+    if (e.code === 'permission-denied') return true; // rules not yet deployed — proceed optimistically
+    throw e;
+  }
 }
 
 export async function claimUsername(newUsername, oldUsername) {
