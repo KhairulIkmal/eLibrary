@@ -68,8 +68,7 @@
     explore:  page.includes('explore'),
     platform: page.includes('platform') || page.includes('watch'),
     update:   page.includes('update'),
-    friends:  page.includes('friends'),
-    chat:     page.includes('chat'),
+    friends:  page.includes('friends') || page.includes('chat'),
     calendar: page.includes('calendar'),
     import:   page.includes('import'),
     stats:    page.includes('stats'),
@@ -79,12 +78,11 @@
     { href: 'explore.html',  label: 'Explore',  icon: 'fa-compass',       key: 'explore'  },
     { href: 'home.html',     label: 'Home',     icon: 'fa-house',         key: 'home'     },
     { href: 'platform.html', label: 'Platform', icon: 'fa-circle-play',   key: 'platform' },
-    { href: 'update.html',   label: 'Tracker',  icon: 'fa-pen-to-square', key: 'update'   },
+    { href: 'friends.html',  label: 'Friends',  icon: 'fa-user-group',    key: 'friends'  },
   ];
 
   const secondaryLinks = [
-    { href: 'friends.html',  label: 'Friends',  icon: 'fa-user-group',    key: 'friends'  },
-    { href: 'chat.html',     label: 'Chat',     icon: 'fa-comments',      key: 'chat'     },
+    { href: 'update.html',   label: 'Tracker',  icon: 'fa-pen-to-square', key: 'update'   },
     { href: 'calendar.html', label: 'Calendar', icon: 'fa-calendar-days', key: 'calendar' },
     { href: 'import.html',   label: 'Import',   icon: 'fa-file-import',   key: 'import'   },
     { href: 'stats.html',    label: 'Stats',    icon: 'fa-chart-bar',     key: 'stats'    },
@@ -105,9 +103,7 @@
   }
 
   const moreIsActive = secondaryLinks.some(l => active[l.key]);
-  const moreBadge    = secondaryLinks.some(l =>
-    l.key === 'friends' && parseInt(sessionStorage.getItem('friendReqCount') || '0') > 0
-  );
+  const moreBadge    = false; // friend request badge is now on the primary Friends link
 
   const logoSvg = `
     <svg width="30" height="26" viewBox="0 0 30 26" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
