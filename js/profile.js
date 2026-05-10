@@ -256,8 +256,10 @@ saveBtn.addEventListener('click', async () => {
       photoURL:    photoURL || null,
     });
 
-    // Claim username slot and sync public profile
-    await claimUsername(newUsername, oldUsername);
+    // Claim username slot only if it actually changed (setDoc on existing doc needs update rule)
+    if (newUsername.toLowerCase() !== oldUsername.toLowerCase()) {
+      await claimUsername(newUsername, oldUsername);
+    }
     await upsertPublicProfile(user);
 
     updateNavChip(user);

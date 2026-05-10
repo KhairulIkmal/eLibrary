@@ -8,6 +8,9 @@ service cloud.firestore {
     match /usernames/{username} {
       allow read:   if true; // username availability is public — needed for registration + friend search
       allow create: if request.auth != null && request.resource.data.uid == request.auth.uid;
+      allow update: if request.auth != null
+                       && resource.data.uid == request.auth.uid
+                       && request.resource.data.uid == request.auth.uid;
       allow delete: if request.auth != null && resource.data.uid == request.auth.uid;
     }
 
