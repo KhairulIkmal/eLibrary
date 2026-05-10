@@ -304,29 +304,25 @@
         return;
       }
 
-      if (isRegisterMode) {
-        if (!/^[a-zA-Z0-9_]{3,20}$/.test(username)) {
-          errMsg.textContent = 'Username must be 3–20 characters: letters, numbers, or _.';
-          return;
-        }
-        btnText.textContent = 'Checking username...';
-        loginBtn.disabled   = true;
-        errMsg.textContent  = '';
-        const available = await checkUsernameAvailable(username);
-        if (!available) {
-          errMsg.textContent  = 'That username is already taken.';
-          loginBtn.disabled   = false;
-          btnText.textContent = 'Create Account';
-          return;
-        }
+      if (isRegisterMode && !/^[a-zA-Z0-9_]{3,20}$/.test(username)) {
+        errMsg.textContent = 'Username must be 3–20 characters: letters, numbers, or _.';
+        return;
       }
 
       loginBtn.disabled   = true;
-      btnText.textContent = isRegisterMode ? 'Creating...' : 'Logging in...';
+      btnText.textContent = isRegisterMode ? 'Checking username...' : 'Logging in...';
       errMsg.textContent  = '';
 
       try {
         if (isRegisterMode) {
+          const available = await checkUsernameAvailable(username);
+          if (!available) {
+            errMsg.textContent  = 'That username is already taken.';
+            loginBtn.disabled   = false;
+            btnText.textContent = 'Create Account';
+            return;
+          }
+          btnText.textContent = 'Creating...';
           const { user } = await createUserWithEmailAndPassword(auth, email, pass);
           await updateProfile(user, { displayName: username });
           await claimUsername(username, '');

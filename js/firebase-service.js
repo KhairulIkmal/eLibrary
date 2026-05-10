@@ -446,8 +446,9 @@ export async function upsertPublicProfile(user) {
 export async function checkUsernameAvailable(username) {
   const snap = await getDoc(doc(db, "usernames", username.toLowerCase()));
   if (!snap.exists()) return true;
-  const uid = await getUid();
-  return snap.data().uid === uid; // already mine → still "available"
+  const currentUid = auth.currentUser?.uid;
+  if (!currentUid) return false; // not logged in = definitely taken
+  return snap.data().uid === currentUid; // already mine → still "available"
 }
 
 export async function claimUsername(newUsername, oldUsername) {
