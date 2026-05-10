@@ -369,6 +369,45 @@ form {
 }
 .reset-cancel-btn:hover { color: #fff; }
 
+/* ── ACTION PAGE (action.html) ───────────────────────────── */
+.action-state { text-align: center; }
+.action-icon { font-size: 52px; margin-bottom: 14px; }
+.action-icon.success { color: #4caf50; }
+.action-icon.error   { color: #e53935; }
+.action-title { font-size: 17px; color: #fff; margin: 0 0 8px; }
+.action-msg   { font-size: 12px; color: rgba(255,255,255,0.45); margin: 0 0 16px; line-height: 1.6; }
+.action-spinner {
+  width: 40px; height: 40px; border-radius: 50%;
+  border: 3px solid rgba(255,0,0,0.15);
+  border-top-color: #cc0000;
+  animation: spin .8s linear infinite;
+  margin: 0 auto 16px;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+.action-back-btn {
+  background: rgba(255,255,255,0.04) !important;
+  box-shadow: none !important;
+  border: 1px solid rgba(255,255,255,0.1) !important;
+  color: rgba(255,255,255,0.6) !important;
+}
+.resend-form {
+  display: flex; flex-direction: column; gap: 8px;
+  margin: 4px 0 10px; text-align: left;
+}
+.resend-form input {
+  width: 100%; padding: 11px 14px;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.1); border-radius: 10px;
+  color: #fff; font-family: "Bungee", Arial, sans-serif;
+  font-size: 13px; outline: none;
+  transition: border-color .15s, box-shadow .15s;
+}
+.resend-form input:focus {
+  border-color: rgba(255,0,0,0.4);
+  box-shadow: 0 0 0 3px rgba(255,0,0,0.08);
+}
+.resend-msg { font-size: 11px; min-height: 14px; text-align: center; }
+
 /* ── RESPONSIVE ──────────────────────────────────────────── */
 @media (max-width: 480px) {
   .login-card {

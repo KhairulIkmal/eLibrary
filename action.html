@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <link rel="icon" type="image/jpeg" href="main.jpg" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>My E-Library</title>
+  <link rel="stylesheet" href="css/style.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Bungee&display=swap" rel="stylesheet" />
+  <script src="https://kit.fontawesome.com/3c6e6d7c17.js" crossorigin="anonymous"></script>
+</head>
+<body>
+
+  <div class="bg-orb orb-1"></div>
+  <div class="bg-orb orb-2"></div>
+  <div class="bg-orb orb-3"></div>
+
+  <div class="login-wrap">
+    <div class="login-card">
+
+      <div class="login-brand">
+        <div class="login-logo"><img src="main.jpg" alt="E-Library Logo" /></div>
+        <h1 class="login-title">My E-Library</h1>
+      </div>
+
+      <!-- Loading -->
+      <div id="stateLoading" class="action-state">
+        <div class="action-spinner"></div>
+        <p class="action-msg">Processing your request...</p>
+      </div>
+
+      <!-- Success -->
+      <div id="stateSuccess" class="action-state" style="display:none;">
+        <div class="action-icon success"><i class="fa-solid fa-circle-check"></i></div>
+        <p class="action-title" id="successTitle"></p>
+        <p class="action-msg"  id="successMsg"></p>
+        <a href="login.html" class="login-btn" style="text-decoration:none;display:flex;margin-top:8px;">
+          <i class="fa-solid fa-arrow-right-to-bracket"></i> Go to Login
+        </a>
+      </div>
+
+      <!-- Error -->
+      <div id="stateError" class="action-state" style="display:none;">
+        <div class="action-icon error"><i class="fa-solid fa-circle-exclamation"></i></div>
+        <p class="action-title" id="errorTitle"></p>
+        <p class="action-msg"  id="errorMsg"></p>
+        <div id="resendSection"></div>
+        <a href="login.html" class="login-btn action-back-btn" style="text-decoration:none;display:flex;">
+          <i class="fa-solid fa-arrow-left"></i> Back to Login
+        </a>
+      </div>
+
+      <!-- Reset password form -->
+      <div id="stateReset" class="action-state" style="display:none;">
+        <p class="action-title">Set New Password</p>
+        <p class="action-msg" id="resetEmailLabel"></p>
+        <form id="resetForm" style="text-align:left;">
+          <div class="field-group">
+            <label for="newPassword"><i class="fa-solid fa-lock"></i> New Password</label>
+            <div class="pw-wrap">
+              <input type="password" id="newPassword" placeholder="Enter new password" required />
+              <button type="button" class="pw-toggle" id="pwToggle1"><i class="fa-solid fa-eye"></i></button>
+            </div>
+            <div class="pw-strength" id="pwStrength" style="display:none;">
+              <div class="pw-strength-bar"><div class="pw-strength-fill" id="pwStrengthFill"></div></div>
+              <span class="pw-strength-label" id="pwStrengthLabel"></span>
+            </div>
+          </div>
+          <div class="field-group" style="margin-top:12px;">
+            <label for="confirmNewPassword"><i class="fa-solid fa-lock"></i> Confirm Password</label>
+            <div class="pw-wrap">
+              <input type="password" id="confirmNewPassword" placeholder="Re-enter new password" required />
+              <button type="button" class="pw-toggle" id="pwToggle2"><i class="fa-solid fa-eye"></i></button>
+            </div>
+          </div>
+          <div id="resetFormMsg" class="err-msg" style="margin-top:8px;text-align:center;"></div>
+          <button type="submit" id="resetSubmitBtn" class="login-btn" style="margin-top:16px;">
+            <span id="resetBtnText">Set Password</span>
+            <i class="fa-solid fa-key"></i>
+          </button>
+        </form>
+      </div>
+
+    </div>
+  </div>
+
+  <script type="module">
+    import { initializeApp, getApps, getApp }
+      from "https://www.gstatic.com/firebasejs/11.6.0/firebase-app.js";
+    import { getAuth, applyActionCode, verifyPasswordResetCode,
+             confirmPasswordReset, sendPasswordResetEmail }
+      from "https://www.gstatic.com/firebasejs/11.6.0/firebase-auth.js";
+    import { firebaseConfig } from "./js/firebase-config.js";
+
+    const app     = getApps().length ? getApp() : initializeApp(firebaseConfig);
+    const auth    = getAuth(app);
+    const params  = new URLSearchParams(location.search);
+    const mode    = params.get('mode');
+    const oobCode = params.get('oobCode');
+
+    /* ── State helpers ── */
+    const states = ['stateLoading','stateSuccess','stateError','stateReset'];
+    function showState(id) {
+      states.forEach(s => document.getElementById(s).style.display = s === id ? 'block' : 'none');
+    }
+    function showSuccess(title, msg) {
+      document.getElementById('successTitle').textContent = title;
+      document.getElementById('successMsg').textContent   = msg;
+      showState('stateSuccess');
+    }
+    function showError(title, msg, resendHtml = '') {
+      document.getElementById('errorTitle').textContent  = title;
+      document.getElementById('errorMsg').textContent    = msg;
+      document.getElementById('resendSection').innerHTML = resendHtml;
+      showState('stateError');
+    }
+
+    /* ── Verify email ── */
+    async function handleVerifyEmail() {
+      try {
+        await applyActionCode(auth, oobCode);
+        showSuccess('Email Verified!', 'Your email has been verified. You can now log in.');
+      } catch {
+        showError(
+          'Link Expired',
+          'This verification link has expired or already been used. Log in and a fresh link will be sent to you automatically.',
+          `<a href="login.html" class="login-btn" style="text-decoration:none;display:flex;margin-bottom:10px;">
+            <i class="fa-solid fa-arrow-right-to-bracket"></i> Go to Login
+          </a>`
+        );
+      }
+    }
+
+    /* ── Reset password ── */
+    async function handleResetPassword() {
+      try {
+        const email = await verifyPasswordResetCode(auth, oobCode);
+        document.getElementById('resetEmailLabel').textContent = `For: ${email}`;
+        showState('stateReset');
+
+        // Password toggles
+        function makeToggle(btnId, inputId) {
+          document.getElementById(btnId).addEventListener('click', () => {
+            const inp  = document.getElementById(inputId);
+            const show = inp.type === 'password';
+            inp.type   = show ? 'text' : 'password';
+            document.querySelector(`#${btnId} i`).className = show ? 'fa-solid fa-eye-slash' : 'fa-solid fa-eye';
+          });
+        }
+        makeToggle('pwToggle1', 'newPassword');
+        makeToggle('pwToggle2', 'confirmNewPassword');
+
+        // Strength meter
+        document.getElementById('newPassword').addEventListener('input', () => {
+          const val    = document.getElementById('newPassword').value;
+          const score  = getStrength(val);
+          const levels = [
+            { label: '',          color: '#333',    width: '0%'   },
+            { label: 'Too short', color: '#555',    width: '15%'  },
+            { label: 'Weak',      color: '#e53935', width: '30%'  },
+            { label: 'Fair',      color: '#fb8c00', width: '60%'  },
+            { label: 'Good',      color: '#43a047', width: '80%'  },
+            { label: 'Strong',    color: '#00897b', width: '100%' },
+          ];
+          const lvl = levels[score];
+          document.getElementById('pwStrength').style.display        = 'block';
+          document.getElementById('pwStrengthFill').style.width       = lvl.width;
+          document.getElementById('pwStrengthFill').style.background  = lvl.color;
+          document.getElementById('pwStrengthLabel').textContent      = lvl.label;
+          document.getElementById('pwStrengthLabel').style.color      = lvl.color;
+        });
+
+        // Submit new password
+        document.getElementById('resetForm').addEventListener('submit', async (e) => {
+          e.preventDefault();
+          const newPass  = document.getElementById('newPassword').value;
+          const confirm  = document.getElementById('confirmNewPassword').value;
+          const msg      = document.getElementById('resetFormMsg');
+          const btn      = document.getElementById('resetSubmitBtn');
+          const btnText  = document.getElementById('resetBtnText');
+          msg.className  = 'err-msg';
+
+          if (newPass.length < 6) { msg.textContent = 'Password must be at least 6 characters.'; return; }
+          if (newPass !== confirm) { msg.textContent = 'Passwords do not match.'; return; }
+
+          btn.disabled        = true;
+          btnText.textContent = 'Saving...';
+          try {
+            await confirmPasswordReset(auth, oobCode, newPass);
+            showSuccess('Password Reset!', 'Your password has been updated. You can now log in with your new password.');
+          } catch {
+            msg.textContent     = 'Failed to reset. The link may have expired — request a new one.';
+            btn.disabled        = false;
+            btnText.textContent = 'Set Password';
+          }
+        });
+
+      } catch {
+        // Link expired — show resend form
+        showError(
+          'Link Expired',
+          'This reset link has expired or already been used. Enter your email to get a new one.',
+          `<div class="resend-form">
+            <input type="email" id="resendEmail" placeholder="Your email address" />
+            <div id="resendMsg" class="resend-msg"></div>
+            <button class="login-btn" onclick="window.__resend()" style="margin-bottom:10px;">
+              <i class="fa-solid fa-paper-plane"></i> Send New Link
+            </button>
+          </div>`
+        );
+
+        window.__resend = async () => {
+          const email = document.getElementById('resendEmail')?.value?.trim();
+          const msgEl = document.getElementById('resendMsg');
+          if (!email) { msgEl.textContent = 'Enter your email.'; msgEl.style.color = '#f44336'; return; }
+          try {
+            await sendPasswordResetEmail(auth, email);
+            msgEl.textContent = 'New link sent! Check your inbox.';
+            msgEl.style.color = '#4caf50';
+          } catch {
+            msgEl.textContent = 'No account found with this email.';
+            msgEl.style.color = '#f44336';
+          }
+        };
+      }
+    }
+
+    function getStrength(pw) {
+      if (pw.length === 0) return 0;
+      if (pw.length < 6)   return 1;
+      let s = 2;
+      if (pw.length >= 8)           s++;
+      if (/[A-Z]/.test(pw))        s++;
+      if (/[0-9]/.test(pw))        s++;
+      if (/[^A-Za-z0-9]/.test(pw)) s++;
+      return Math.min(s, 5);
+    }
+
+    // Route
+    if (!mode || !oobCode)         showError('Invalid Link', 'This link is invalid or incomplete.');
+    else if (mode === 'verifyEmail')    handleVerifyEmail();
+    else if (mode === 'resetPassword')  handleResetPassword();
+    else showError('Unknown Action', 'This link type is not supported.');
+  </script>
+
+</body>
+</html>
